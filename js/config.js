@@ -1,7 +1,4 @@
-const IS_PRODUCTION = window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost';
-const API_URL = IS_PRODUCTION
-    ? 'https://TU-API-PRODUCCION.com/api'  // ← CAMBIA esto por tu backend en producción
-    : 'http://127.0.0.1:8000/api';
+const API_URL = 'http://127.0.0.1:8000/api';
 
 const ROOT_PATH = (() => {
     const path = window.location.pathname;
