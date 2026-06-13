@@ -3,6 +3,7 @@ let usuariosDisponibles = [], estadosRep = [], extensiones = [], licencias = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Repartidores', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await Promise.all([loadCatalogos()]);
     renderPage();
 });

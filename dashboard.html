@@ -23,7 +23,28 @@
             </div>
         </header>
 
-        <div class="content">
+        <div class="content" id="page-content">
+            <div id="bienvenida-banner" class="card mb-6" style="display:none;border-left:4px solid #3b82f6;background:linear-gradient(135deg,#eff6ff,#ffffff);">
+                <div class="card-body">
+                    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;">
+                                    <i class="fas fa-file-pdf" style="color:#2563eb;font-size:18px;"></i>
+                                </div>
+                                <div>
+                                    <h3 style="font-size:16px;font-weight:600;margin:0;">¡Bienvenido al Sistema!</h3>
+                                    <p style="font-size:13px;color:var(--text-muted);margin:2px 0 0 0;">Revisa los manuales disponibles para conocer el sistema</p>
+                                </div>
+                            </div>
+                            <div id="bienvenida-docs" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;"></div>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="ocultarBannerBienvenida()" style="align-self:flex-start;">
+                            <i class="fas fa-check"></i> Entendido
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="stats-grid" id="stats-cards">
                 <div class="stat-card"><div class="icon blue"><i class="fas fa-box"></i></div><div class="info"><div class="label">Pedidos</div><div class="value" id="stat-pedidos"><span class="stat-skeleton"></span></div></div></div>
                 <div class="stat-card"><div class="icon green"><i class="fas fa-truck"></i></div><div class="info"><div class="label">Despachos</div><div class="value" id="stat-despachos"><span class="stat-skeleton"></span></div></div></div>

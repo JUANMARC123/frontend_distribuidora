@@ -2,6 +2,7 @@ let usuariosTable, editingId = null, estadosUsuario = [], allRoles = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Usuarios', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await Promise.all([loadEstadosUsuario(), loadRoles()]);
     renderPage();
 });

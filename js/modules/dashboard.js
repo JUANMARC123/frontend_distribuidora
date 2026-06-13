@@ -10,6 +10,8 @@ document.addEventListener('DOMContentLoaded', async function () {
         weekday: 'long', year: 'numeric', month: 'long', day: 'numeric'
     });
 
+    initBienvenidaBanner();
+
     try {
         const resumen = await apiFetch('/reportes/resumen');
         console.log('[Dashboard] Resumen recibido:', resumen); // debug
@@ -161,6 +163,40 @@ function renderDoughnutChart(canvasId, data, label) {
             }
         }
     });
+}
+
+function initBienvenidaBanner() {
+    const banner = document.getElementById('bienvenida-banner');
+    const docsContainer = document.getElementById('bienvenida-docs');
+    if (!banner || !docsContainer) return;
+
+    const yaVisto = localStorage.getItem('first_time_docs');
+    if (yaVisto) return;
+
+    localStorage.setItem('first_time_docs', 'done');
+
+    DOCUMENTOS.forEach(doc => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-primary';
+        btn.innerHTML = `<i class="fas fa-file-pdf"></i> ${doc.titulo}`;
+        btn.onclick = () => verDocumento(doc.archivo);
+        docsContainer.appendChild(btn);
+
+        const btnDownload = document.createElement('button');
+        btnDownload.className = 'btn btn-sm btn-success';
+        btnDownload.innerHTML = `<i class="fas fa-download"></i>`;
+        btnDownload.title = `Descargar ${doc.titulo}`;
+        btnDownload.onclick = () => descargarDocumento(doc.archivo, `${doc.titulo}.pdf`);
+        btnDownload.style.marginLeft = '4px';
+        docsContainer.appendChild(btnDownload);
+    });
+
+    banner.style.display = 'block';
+}
+
+function ocultarBannerBienvenida() {
+    const banner = document.getElementById('bienvenida-banner');
+    if (banner) banner.style.display = 'none';
 }
 
 function renderLineChart(canvasId, data, label) {

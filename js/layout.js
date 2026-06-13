@@ -36,6 +36,7 @@ async function loadSidebar() {
     const allNavItems = [
         { section: 'Principal' },
         { icon: 'fa-chart-pie', label: 'Dashboard', page: currentDir + 'dashboard.html', moduleKey: 'Dashboard' },
+        { icon: 'fa-file-pdf', label: 'Documentos', page: currentDir + 'pages/documentos.html', moduleKey: 'Documentos' },
         { icon: 'fa-file-alt', label: 'Reportes', page: currentDir + 'pages/reportes.html', moduleKey: 'Reportes' },
         { section: 'Gestión' },
         { icon: 'fa-users', label: 'Usuarios', page: currentDir + 'pages/usuarios.html', moduleKey: 'Usuarios' },

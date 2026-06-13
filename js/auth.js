@@ -83,6 +83,12 @@ async function register(nombre, apellido, email, password, passwordConfirmation,
 
         const userData = data.user || data.data?.user || { nombre, apellido, email, telefono };
         localStorage.setItem('user', JSON.stringify(userData));
+
+        const permisos = data.permisos || data.data?.permisos || [];
+        if (permisos.length) {
+            localStorage.setItem('permisos', JSON.stringify(permisos));
+            userPermissions = permisos;
+        }
     } else {
         console.log('[Auth] Registro completado pero sin token (posiblemente requiere activación/admin)');
     }

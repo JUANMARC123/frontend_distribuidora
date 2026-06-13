@@ -4,6 +4,7 @@ let tiposIncidencia = [], tiposEvidencia = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Despachos', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await Promise.all([loadCatalogos()]);
     renderPage();
 });
@@ -14,7 +15,7 @@ async function loadCatalogos() {
     try { const d = await apiFetch('/catalogos/estados-despacho'); estadosDesp = Array.isArray(d) ? d : (d.data || []); } catch (e) { estadosDesp = [{ id_estado_despacho: 1, nombre_estado: 'Pendiente' }, { id_estado_despacho: 2, nombre_estado: 'En ruta' }, { id_estado_despacho: 3, nombre_estado: 'Entregado' }, { id_estado_despacho: 4, nombre_estado: 'Cancelado' }]; }
     try { const d = await apiFetch('/catalogos/tipos-incidencia'); tiposIncidencia = Array.isArray(d) ? d : (d.data || []); } catch (e) { tiposIncidencia = [{ id_tipo_incidencia: 1, nombre_tipo: 'Producto dañado' }, { id_tipo_incidencia: 2, nombre_tipo: 'Retraso' }, { id_tipo_incidencia: 3, nombre_tipo: 'Dirección incorrecta' }, { id_tipo_incidencia: 4, nombre_tipo: 'Cliente ausente' }]; }
     try { const d = await apiFetch('/catalogos/tipos-evidencia'); tiposEvidencia = Array.isArray(d) ? d : (d.data || []); } catch (e) { tiposEvidencia = [{ id_tipo_evidencia: 1, nombre_tipo: 'Foto' }, { id_tipo_evidencia: 2, nombre_tipo: 'Firma' }, { id_tipo_evidencia: 3, nombre_tipo: 'PDF' }]; }
-    try { const d = await apiFetch('/rutas'); const rutas = Array.isArray(d) ? d : (d.data || []); const allParadas = []; for (const r of rutas) { try { const p = await apiFetch(`/rutas/${r.id_ruta}/paradas`); const parsed = Array.isArray(p) ? p : (p.data || []); parsed.forEach(p2 => allParadas.push({ ...p2, ruta_nombre: r.nombre_ruta })); } catch (e) {} } paradasList = allParadas; } catch (e) { paradasList = []; }
+    try { const d = await apiFetch('/rutas'); const rutas = Array.isArray(d) ? d : (d.data || []); const allParadas = []; if (hasPermission('Rutas', 'gestionar-paradas')) { for (const r of rutas) { try { const p = await apiFetch(`/rutas/${r.id_ruta}/paradas`); const parsed = Array.isArray(p) ? p : (p.data || []); parsed.forEach(p2 => allParadas.push({ ...p2, ruta_nombre: r.nombre_ruta })); } catch (e) {} } } paradasList = allParadas; } catch (e) { paradasList = []; }
 }
 
 function renderPage() {
@@ -271,7 +272,7 @@ async function loadEvidencias() {
             language: { url: 'https://cdn.datatables.net/plug-ins/1.13.6/i18n/es-ES.json' },
             columns: [
                 { data: null, render: r => r.tipo?.nombre_tipo || r.nombre_tipo || '—' },
-                { data: null, render: r => r.archivo ? `<a href="${r.archivo}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i> Ver</a>` : '—' },
+                { data: null, render: r => r.archivo ? `<a href="${API_URL.replace('/api', '/storage/')}${r.archivo}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i> Ver</a>` : '—' },
                 { data: null, render: r => formatDate(r.fecha_registro) },
                 { data: null, render: r => `<div class="actions">
                     ${hasPermission('Despachos', 'gestionar-evidencias') ? `<button class="btn btn-sm btn-danger" onclick="delEvidencia(${r.id_evidencia})"><i class="fas fa-trash"></i></button>` : ''}

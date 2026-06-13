@@ -2,6 +2,7 @@ let pedidosTable, editingId = null, farmaciasList = [], estadosPedido = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Pedidos', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await Promise.all([loadFarmacias(), loadEstados()]);
     renderPage();
 });
