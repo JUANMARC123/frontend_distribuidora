@@ -1,3 +1,14 @@
+function autoEmailRegistro() {
+    const nombre   = (document.getElementById('reg-nombre')?.value || '').trim().split(' ')[0].toLowerCase();
+    const apellido = (document.getElementById('reg-apellido')?.value || '').trim().split(' ')[0].toLowerCase();
+    const emailField = document.getElementById('email');
+    if (!emailField || emailField.dataset.manual) return;
+    const limpiar = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    if (nombre || apellido) {
+        emailField.value = limpiar(nombre) + '.' + limpiar(apellido) + '@distribuidora.com';
+    }
+}
+
 function extractToken(data) {
     if (!data || typeof data !== 'object') return null;
     if (typeof data.token === 'string' && data.token.length > 10) return data.token;
@@ -83,12 +94,6 @@ async function register(nombre, apellido, email, password, passwordConfirmation,
 
         const userData = data.user || data.data?.user || { nombre, apellido, email, telefono };
         localStorage.setItem('user', JSON.stringify(userData));
-
-        const permisos = data.permisos || data.data?.permisos || [];
-        if (permisos.length) {
-            localStorage.setItem('permisos', JSON.stringify(permisos));
-            userPermissions = permisos;
-        }
     } else {
         console.log('[Auth] Registro completado pero sin token (posiblemente requiere activación/admin)');
     }
