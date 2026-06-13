@@ -84,15 +84,26 @@ body {
 
 .input-wrapper .toggle-password {
     position: absolute;
-    right: 14px;
-    top: 50%;
-    transform: translateY(-50%);
-    background: none;
+    right: 0;
+    top: 0;
+    width: 44px;
+    height: 100%;
+    transform: none;
+    background: transparent;
     border: none;
     color: #94a3b8;
     cursor: pointer;
     font-size: 16px;
     padding: 0;
+    z-index: 10;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.input-wrapper .toggle-password i {
+    position: static;
+    transform: none;
 }
 
 .input-wrapper .toggle-password:hover {
@@ -101,7 +112,7 @@ body {
 
 .form-control {
     width: 100%;
-    padding: 12px 14px 12px 42px;
+    padding: 12px 44px 12px 42px;
     border: 2px solid #e2e8f0;
     border-radius: 10px;
     font-size: 15px;
@@ -158,9 +169,19 @@ body {
 
 .login-footer {
     text-align: center;
-    margin-top: 24px;
+    margin-top: 28px;
     font-size: 13px;
     color: #94a3b8;
+}
+
+.login-footer a {
+    color: #3b82f6;
+    font-weight: 600;
+    text-decoration: none;
+}
+
+.login-footer a:hover {
+    text-decoration: underline;
 }
 
 .error-message {
@@ -190,9 +211,7 @@ body {
     .form-row {
         grid-template-columns: 1fr;
     }
-}
 
-@media (max-width: 480px) {
     .login-card {
         padding: 28px 20px;
     }
