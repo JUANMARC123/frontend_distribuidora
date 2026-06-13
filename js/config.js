@@ -1,4 +1,12 @@
-const API_URL = 'http://127.0.0.1:8000/api';
+const IS_PRODUCTION = window.location.hostname !== '127.0.0.1' && window.location.hostname !== 'localhost';
+const API_URL = IS_PRODUCTION
+    ? 'https://TU-API-PRODUCCION.com/api'  // ← CAMBIA esto por tu backend en producción
+    : 'http://127.0.0.1:8000/api';
+
+const ROOT_PATH = (() => {
+    const path = window.location.pathname;
+    return path.includes('/pages/') ? '../' : './';
+})();
 
 async function apiFetch(endpoint, options = {}) {
     const fullUrl = `${API_URL}${endpoint}`;
@@ -49,7 +57,7 @@ async function apiFetch(endpoint, options = {}) {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
             if (!window.location.pathname.endsWith('index.html') && window.location.pathname !== '/') {
-                window.location.href = '/index.html';
+                window.location.href = ROOT_PATH + 'index.html';
             }
             const err = new Error(data?.message || 'Sesión expirada');
             err.status = 401;

@@ -110,7 +110,7 @@ async function logout() {
     }
     localStorage.removeItem('token');
     localStorage.removeItem('user');
-    window.location.href = '/index.html';
+    window.location.href = ROOT_PATH + 'index.html';
 }
 
 function checkAuth() {
@@ -124,7 +124,7 @@ function checkAuth() {
             localStorage.removeItem('token');
             localStorage.removeItem('user');
         }
-        window.location.href = '/index.html';
+        window.location.href = ROOT_PATH + 'index.html';
         return false;
     }
     return true;
