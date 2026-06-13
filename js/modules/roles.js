@@ -93,10 +93,40 @@ async function save() {
 }
 
 async function del(id, name) {
-    const r = await Swal.fire({ title: '¿Eliminar rol?', text: `Se eliminará "${name}".`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#ef4444' });
+    const r = await Swal.fire({
+        title: '¿Eliminar rol?',
+        text: `Se eliminará "${name}". Esta acción no se puede deshacer.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444'
+    });
+
     if (!r.isConfirmed) return;
-    try { await apiFetch(`/roles/${id}`, { method: 'DELETE' }); Swal.fire('Eliminado', 'Rol eliminado', 'success'); if (rolesTable) await reloadDataTable(rolesTable, '/roles'); }
-    catch (e) { Swal.fire('Error', e.message || 'Error al eliminar', 'error'); }
+
+    try {
+        await apiFetch(`/roles/${id}`, { method: 'DELETE' });
+
+        Swal.fire('Eliminado', 'Rol eliminado exitosamente.', 'success');
+
+        if (rolesTable) await reloadDataTable(rolesTable, '/roles');
+    } catch (e) {
+        if (e.status === 409 || e.assigned || e.data?.assigned) {
+            Swal.fire({
+                title: 'No se puede eliminar este rol',
+                html: `
+                    <p>Este rol está asignado a uno o más usuarios.</p>
+                    <p>Primero debes quitar este rol desde la sección <b>Usuarios</b> y luego volver a intentarlo.</p>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        Swal.fire('Error', e.message || 'Error al eliminar', 'error');
+    }
 }
 
 // Permisos

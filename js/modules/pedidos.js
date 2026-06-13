@@ -124,12 +124,41 @@ async function save() {
 }
 
 async function del(id) {
-    const r = await Swal.fire({ title: '¿Eliminar pedido?', text: `Se eliminará el pedido #${id}.`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#ef4444' });
-    if (!r.isConfirmed) return;
-    try { await apiFetch(`/pedidos/${id}`, { method: 'DELETE' }); Swal.fire('Eliminado', 'Pedido eliminado', 'success'); if (pedidosTable) await reloadDataTable(pedidosTable, '/pedidos'); }
-    catch (e) { Swal.fire('Error', e.message || 'Error al eliminar', 'error'); }
-}
+    const r = await Swal.fire({
+        title: '¿Eliminar pedido?',
+        text: `Se eliminará el pedido #${id}. Esta acción no se puede deshacer.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444'
+    });
 
+    if (!r.isConfirmed) return;
+
+    try {
+        await apiFetch(`/pedidos/${id}`, { method: 'DELETE' });
+
+        Swal.fire('Eliminado', 'Pedido eliminado exitosamente.', 'success');
+
+        if (pedidosTable) await reloadDataTable(pedidosTable, '/pedidos');
+    } catch (e) {
+        if (e.status === 409 || e.has_dispatch || e.data?.has_dispatch) {
+            Swal.fire({
+                title: 'No se puede eliminar este pedido',
+                html: `
+                    <p>Este pedido ya tiene un despacho registrado.</p>
+                    <p>Para conservar el historial del sistema, no puede eliminarse.</p>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        Swal.fire('Error', e.message || 'Error al eliminar', 'error');
+    }
+}
 // Cambiar estado
 let estadoPedidoId = null;
 
