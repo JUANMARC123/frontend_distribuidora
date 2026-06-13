@@ -32,7 +32,7 @@ const CATEGORIAS = {
 document.addEventListener('DOMContentLoaded', async function () {
   if (!checkAuth()) return;
   if (!hasPermission('Usuarios', 'acceder')) {
-    window.location.href = 'dashboard.html';
+    window.location.href = '../dashboard.html';
     return;
   }
   renderPage();

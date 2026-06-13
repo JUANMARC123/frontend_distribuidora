@@ -2,6 +2,7 @@ let controlesTable, editingId = null, rutasList = [], repartidoresList = [], veh
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Control Rutas', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await Promise.all([loadRutas(), loadRepartidores(), loadVehiculos()]);
     renderPage();
 });

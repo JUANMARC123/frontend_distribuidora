@@ -3,6 +3,7 @@ let currentRutaId = null, currentRutaName = '', paradasTable = null, editingPara
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Rutas', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     try { const d = await apiFetch('/farmacias'); farmaciasList = Array.isArray(d) ? d : (d.data || []); } catch (e) { farmaciasList = []; }
     renderPage();
 });

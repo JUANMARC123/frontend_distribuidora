@@ -5,6 +5,7 @@ let editingContactoId = null;
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Farmacias', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await loadCargos();
     renderPage();
 });

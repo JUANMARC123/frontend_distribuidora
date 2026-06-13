@@ -2,6 +2,7 @@ let rolesTable, editingId = null, allPermisos = [], groupedPermisos = {};
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Roles', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     renderPage();
     await loadTable();
 });

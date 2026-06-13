@@ -2,6 +2,7 @@ let vehiculosTable, editingId = null, modelosList = [], capacidadesList = [], es
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
+    if (!hasPermission('Vehículos', 'acceder')) { window.location.href = '../dashboard.html'; return; }
     await loadCatalogos();
     renderPage();
 });
