@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Reportes - Pw3c Distribuidora</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+    <aside id="sidebar"></aside>
+
+    <div id="main-content">
+        <header id="header">
+            <button class="btn-toggle-sidebar" id="btn-toggle-sidebar">
+                <i class="fas fa-bars"></i>
+            </button>
+            <div class="page-title">Reportes <span>/ Estadísticas del Sistema</span></div>
+        </header>
+
+        <div class="content">
+            <div class="card mb-6">
+                <div class="card-header">
+                    <h3><i class="fas fa-file-alt"></i> Reportes Disponibles</h3>
+                    <div style="display:flex;gap:8px;flex-wrap:wrap;">
+                        <button class="btn btn-sm btn-primary" data-report="pedidos-estado">Pedidos por Estado</button>
+                        <button class="btn btn-sm btn-primary" data-report="despachos-estado">Despachos por Estado</button>
+                        <button class="btn btn-sm btn-primary" data-report="pedidos-dia">Pedidos por Día</button>
+                        <button class="btn btn-sm btn-primary" data-report="repartidores-estado">Repartidores por Estado</button>
+                        <button class="btn btn-sm btn-primary" data-report="vehiculos-estado">Vehículos por Estado</button>
+                        <button class="btn btn-sm btn-primary" data-report="incidencias-tipo">Incidencias por Tipo</button>
+                    </div>
+                </div>
+            </div>
+
+            <div id="report-container">
+                <div class="card">
+                    <div class="card-body">
+                        <div class="empty-state">
+                            <i class="fas fa-chart-bar"></i>
+                            <h4>Seleccione un reporte</h4>
+                            <p class="text-muted">Elija un tipo de reporte de los botones de arriba para visualizar los datos.</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/error-handler.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/modules/reportes.js"></script>
+</body>
+</html>

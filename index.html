@@ -1,0 +1,304 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Iniciar Sesión - Pw3c Distribuidora</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="css/login.css">
+</head>
+<body>
+    <div class="login-container">
+        <div class="login-card">
+            <div class="login-header">
+                <div class="login-logo">
+                    <i class="fas fa-pills"></i>
+                </div>
+                <h1>Pw3c Distribuidora</h1>
+                <p id="form-subtitle">Sistema de Gestión de Distribución</p>
+            </div>
+
+            <div id="error-message" class="error-message">
+                <i class="fas fa-exclamation-circle"></i>
+                <span id="error-text"></span>
+            </div>
+
+            <form id="auth-form" autocomplete="off">
+                <div id="register-fields" style="display:none;">
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Nombre</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user"></i>
+                                <input type="text" id="reg-nombre" class="form-control" placeholder="Nombre">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Apellido</label>
+                            <div class="input-wrapper">
+                                <i class="fas fa-user"></i>
+                                <input type="text" id="reg-apellido" class="form-control" placeholder="Apellido">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="form-group">
+                        <label>Teléfono</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-phone"></i>
+                            <input type="text" id="reg-telefono" class="form-control" placeholder="+591 70000000">
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="email">Correo Electrónico</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-envelope"></i>
+                        <input type="email" id="email" class="form-control" placeholder="tu@correo.com" required autofocus>
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <label for="password">Contraseña</label>
+                    <div class="input-wrapper">
+                        <i class="fas fa-lock"></i>
+                        <input type="password" id="password" class="form-control" placeholder="••••••••" required>
+                        <button type="button" class="toggle-password" id="toggle-password" tabindex="-1">
+                            <i class="fas fa-eye"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <div id="confirm-password-field" style="display:none;">
+                    <div class="form-group">
+                        <label>Confirmar Contraseña</label>
+                        <div class="input-wrapper">
+                            <i class="fas fa-lock"></i>
+                            <input type="password" id="reg-password-confirm" class="form-control" placeholder="Repetir contraseña">
+                        </div>
+                    </div>
+                </div>
+
+                <button type="submit" class="btn-login" id="btn-submit">
+                    <i class="fas fa-sign-in-alt"></i> <span id="btn-text">Ingresar</span>
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <p style="margin-bottom:6px;">
+                    <a href="#" id="toggle-auth-mode" style="color:#3b82f6;font-weight:500;">
+                        ¿No tienes cuenta? Crear una
+                    </a>
+                </p>
+                <p style="margin-bottom:6px;">
+                    <a href="#" id="btn-diagnostic" style="color:#64748b;font-size:12px;">
+                        🔍 Diagnosticar conexión
+                    </a>
+                </p>
+                <p>&copy; 2026 Pw3c Distribuidora</p>
+            </div>
+        </div>
+    </div>
+
+    <script src="js/error-handler.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="js/config.js"></script>
+    <script src="js/auth.js"></script>
+    <script>
+        const token = localStorage.getItem('token');
+        if (token) {
+            window.location.href = '/dashboard.html';
+        }
+
+        let isRegisterMode = false;
+
+        const form = document.getElementById('auth-form');
+        const btnSubmit = document.getElementById('btn-submit');
+        const btnText = document.getElementById('btn-text');
+        const errorMsg = document.getElementById('error-message');
+        const errorText = document.getElementById('error-text');
+        const toggleLink = document.getElementById('toggle-auth-mode');
+        const registerFields = document.getElementById('register-fields');
+        const confirmPassField = document.getElementById('confirm-password-field');
+
+        document.getElementById('toggle-password').addEventListener('click', function () {
+            const input = document.getElementById('password');
+            const icon = this.querySelector('i');
+            input.type = input.type === 'password' ? 'text' : 'password';
+            icon.className = input.type === 'password' ? 'fas fa-eye' : 'fas fa-eye-slash';
+        });
+
+        toggleLink.addEventListener('click', function (e) {
+            e.preventDefault();
+            isRegisterMode = !isRegisterMode;
+            errorMsg.classList.remove('show');
+
+            if (isRegisterMode) {
+                registerFields.style.display = 'block';
+                confirmPassField.style.display = 'block';
+                btnText.textContent = 'Crear Cuenta';
+                btnSubmit.querySelector('i').className = 'fas fa-user-plus';
+                document.getElementById('form-subtitle').textContent = 'Crear una nueva cuenta';
+                this.textContent = '¿Ya tienes cuenta? Iniciar sesión';
+            } else {
+                registerFields.style.display = 'none';
+                confirmPassField.style.display = 'none';
+                btnText.textContent = 'Ingresar';
+                btnSubmit.querySelector('i').className = 'fas fa-sign-in-alt';
+                document.getElementById('form-subtitle').textContent = 'Sistema de Gestión de Distribución';
+                this.textContent = '¿No tienes cuenta? Crear una';
+            }
+        });
+
+        form.addEventListener('submit', async function (e) {
+            e.preventDefault();
+            errorMsg.classList.remove('show');
+
+            const email = document.getElementById('email').value.trim();
+            const password = document.getElementById('password').value;
+
+            if (isRegisterMode) {
+                const nombre = document.getElementById('reg-nombre').value.trim();
+                const apellido = document.getElementById('reg-apellido').value.trim();
+                const telefono = document.getElementById('reg-telefono').value.trim();
+                const passwordConfirm = document.getElementById('reg-password-confirm').value;
+
+                if (!nombre || !apellido || !email || !password) {
+                    showError('Todos los campos son obligatorios');
+                    return;
+                }
+                if (password !== passwordConfirm) {
+                    showError('Las contraseñas no coinciden');
+                    return;
+                }
+                if (password.length < 6) {
+                    showError('La contraseña debe tener al menos 6 caracteres');
+                    return;
+                }
+
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;border-color:#fff;border-top-color:transparent;"></div> Creando cuenta...';
+
+                try {
+                    await register(nombre, apellido, email, password, passwordConfirm, telefono);
+                    const savedToken = localStorage.getItem('token');
+                    if (savedToken && savedToken !== 'undefined' && savedToken.length > 10) {
+                        window.location.href = '/dashboard.html';
+                    } else {
+                        showError('Registro exitoso. Ahora puedes iniciar sesión con tu correo y contraseña.');
+                        isRegisterMode = false;
+                        registerFields.style.display = 'none';
+                        confirmPassField.style.display = 'none';
+                        btnText.textContent = 'Ingresar';
+                        btnSubmit.querySelector('i').className = 'fas fa-sign-in-alt';
+                        document.getElementById('form-subtitle').textContent = 'Sistema de Gestión de Distribución';
+                        toggleLink.textContent = '¿No tienes cuenta? Crear una';
+                        btnSubmit.disabled = false;
+                        btnSubmit.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span id="btn-text">Ingresar</span>';
+                    }
+                } catch (error) {
+                    console.error('[Register Error]', error);
+                    let msg = error.data?.message || error.message || 'Error al registrar';
+                    if (error.data?.errors) {
+                        const errs = Object.values(error.data.errors).flat();
+                        msg += '<br><small>' + errs.join('<br>') + '</small>';
+                    }
+                    showError(msg);
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '<i class="fas fa-user-plus"></i> <span id="btn-text">Crear Cuenta</span>';
+                }
+            } else {
+                if (!email || !password) {
+                    showError('Ingrese su email y contraseña');
+                    return;
+                }
+
+                btnSubmit.disabled = true;
+                btnSubmit.innerHTML = '<div class="spinner" style="width:20px;height:20px;border-width:2px;border-color:#fff;border-top-color:transparent;"></div> Ingresando...';
+
+                try {
+                    await login(email, password);
+                    window.location.href = '/dashboard.html';
+                } catch (error) {
+                    console.error('[Login Error]', error);
+                    let msg = error.data?.message || error.message || 'Credenciales incorrectas.';
+                    if (error.data?.errors) {
+                        const errs = Object.values(error.data.errors).flat();
+                        msg += '<br><small>' + errs.join('<br>') + '</small>';
+                    }
+                    showError(msg);
+                    btnSubmit.disabled = false;
+                    btnSubmit.innerHTML = '<i class="fas fa-sign-in-alt"></i> <span id="btn-text">Ingresar</span>';
+                }
+            }
+        });
+
+        function showError(msg) {
+            errorText.innerHTML = msg;
+            errorMsg.classList.add('show');
+        }
+
+        document.getElementById('btn-diagnostic').addEventListener('click', async function (e) {
+            e.preventDefault();
+            const btn = this;
+            btn.textContent = '🔍 Probando...';
+            btn.style.pointerEvents = 'none';
+
+            const results = [];
+            const checkedAt = new Date().toLocaleTimeString();
+
+            function log(icon, text) {
+                results.push(`${icon} ${text}`);
+            }
+
+            log('🕐', `Diagnóstico iniciado: ${checkedAt}`);
+            log('', `Servidor: http://127.0.0.1:8000`);
+
+            try {
+                await fetch('http://127.0.0.1:8000/', { method: 'GET' });
+                log('✅', 'Laravel: responde OK');
+            } catch (e) {
+                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    log('❌', 'Laravel: NO responde (servidor caído o firewall)');
+                } else if (e.message.includes('CORS')) {
+                    log('✅', 'Laravel: responde (error CORS esperado)');
+                } else {
+                    log('❌', `Laravel: ${e.message}`);
+                }
+            }
+
+            try {
+                const res = await fetch('http://127.0.0.1:8000/api/auth/login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
+                    body: JSON.stringify({ email: 'test@test.com', password: 'test' })
+                });
+                const data = await res.json();
+                log('ℹ️', `API login: status ${res.status}`);
+                log('', `Respuesta: ${JSON.stringify(data).substring(0, 200)}`);
+                if (data.message) log('📋', `Mensaje: ${data.message}`);
+            } catch (e) {
+                if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
+                    log('❌', 'API: NO responde - ¿Laravel está corriendo?');
+                    log('💡', 'Ejecuta: php artisan serve en tu backend');
+                } else if (e.message.includes('CORS')) {
+                    log('✅', 'API: servidor responde (CORS bloquea lectura)');
+                    log('💡', 'Solución: agregar CORS middleware en Laravel');
+                } else {
+                    log('❌', `API: ${e.message}`);
+                }
+            }
+
+            log('', `--- Fin diagnóstico ---`);
+
+            btn.textContent = '🔍 Diagnosticar conexión';
+            btn.style.pointerEvents = '';
+
+            console.log('%c[DIAGNOSTIC]', 'background:#6366f1;color:#fff;padding:2px 6px;border-radius:3px;font-weight:bold;');
+            results.forEach(r => console.log('  ' + r));
+
+            showError(results.join('<br>'));
+        });
+    </script>
+</body>
+</html>
