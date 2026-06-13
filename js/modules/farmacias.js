@@ -3,6 +3,18 @@ let cargosList = [];
 let editingFarmaciaId = null;
 let editingContactoId = null;
 
+// Helpers de validación
+function esEmailValido(email) {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/.test(email);
+}
+function validarEmailInput(input) {
+    if (input.value && !esEmailValido(input.value)) {
+        input.style.borderColor = '#ef4444';
+    } else {
+        input.style.borderColor = '';
+    }
+}
+
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
     await loadCargos();
@@ -68,7 +80,7 @@ function renderPage() {
                             </div>
                             <div class="form-group">
                                 <label>Teléfono</label>
-                                <input type="text" id="f-telefono" class="form-control">
+                                <input type="text" id="f-telefono" class="form-control" placeholder="8 dígitos" maxlength="8" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)">
                             </div>
                         </div>
                         <div class="form-group">
@@ -78,7 +90,7 @@ function renderPage() {
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" id="f-email" class="form-control">
+                                <input type="text" id="f-email" class="form-control" placeholder="ejemplo@correo.com" oninput="validarEmailInput(this)">
                             </div>
                             <div class="form-group">
                                 <label>Latitud</label>
@@ -154,11 +166,11 @@ function renderPage() {
                         <div class="form-row">
                             <div class="form-group">
                                 <label>Teléfono</label>
-                                <input type="text" id="c-telefono" class="form-control">
+                                <input type="text" id="c-telefono" class="form-control" placeholder="8 dígitos" maxlength="8" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)">
                             </div>
                             <div class="form-group">
                                 <label>Email</label>
-                                <input type="email" id="c-email" class="form-control">
+                                <input type="text" id="c-email" class="form-control" placeholder="ejemplo@correo.com" oninput="validarEmailInput(this)">
                             </div>
                         </div>
                     </form>
@@ -193,7 +205,7 @@ async function loadFarmacias() {
                 {
                     data: null,
                     render: function (row) {
-                        const count = row.contactos_count || row.contactos?.length || 0;
+                    const count = row.contactos_count ?? row.contactos?.length ?? 0;
                         const contactBtn = hasPermission('Farmacias', 'gestionar-contactos')
                             ? `<button class="btn btn-sm btn-info" onclick="openContactosModal(${row.id_farmacia},'${row.nombre}')"><i class="fas fa-address-book"></i> ${count}</button>`
                             : `<span class="badge badge-info">${count} contactos</span>`;
@@ -266,6 +278,14 @@ async function saveFarmacia() {
         Swal.fire('Validación', 'Nombre y dirección son obligatorios', 'warning');
         return;
     }
+    if (telefono && telefono.length !== 8) {
+        Swal.fire('Validación', 'El teléfono debe tener exactamente 8 dígitos', 'warning');
+        return;
+    }
+    if (email && !esEmailValido(email)) {
+        Swal.fire('Validación', 'El email ingresado no es válido', 'warning');
+        return;
+    }
 
     const latNum = latitud ? parseFloat(latitud) : null;
     const lngNum = longitud ? parseFloat(longitud) : null;
@@ -320,7 +340,12 @@ async function deleteFarmacia(id, nombre) {
         Swal.fire('Eliminado', 'Farmacia eliminada correctamente', 'success');
         await reloadDataTable(farmaciasTable, '/farmacias');
     } catch (e) {
-        Swal.fire('Error', e.message || 'Error al eliminar', 'error');
+        const msg = e.message || '';
+        if (msg.includes('foreign') || msg.includes('SQLSTATE') || msg.includes('constraint') || msg.includes('clave foránea')) {
+            Swal.fire('No se puede eliminar', 'Esta farmacia tiene pedidos u otros registros asociados. Elimine primero los pedidos relacionados antes de eliminar la farmacia.', 'warning');
+        } else {
+            Swal.fire('Error', msg || 'Error al eliminar', 'error');
+        }
     }
 }
 
@@ -365,10 +390,13 @@ async function loadContactos() {
                 {
                     data: null,
                     render: function (row) {
+                        const cid = row.id_contacto;
+                        const fid = currentFarmaciaId;
+                        const cname = (row.nombre_contacto || '').replace(/'/g, "\\'");
                         return `
                             <div class="actions">
-                                ${hasPermission('Farmacias', 'gestionar-contactos') ? `<button class="btn btn-sm btn-warning" onclick="editContacto(${row.id_contacto})"><i class="fas fa-edit"></i></button>` : ''}
-                                ${hasPermission('Farmacias', 'gestionar-contactos') ? `<button class="btn btn-sm btn-danger" onclick="deleteContacto(${row.id_contacto},'${row.nombre_contacto}')"><i class="fas fa-trash"></i></button>` : ''}
+                                ${hasPermission('Farmacias', 'gestionar-contactos') ? `<button class="btn btn-sm btn-warning" onclick="editContacto(${cid},${fid})"><i class="fas fa-edit"></i></button>` : ''}
+                                ${hasPermission('Farmacias', 'gestionar-contactos') ? `<button class="btn btn-sm btn-danger" onclick="deleteContacto(${cid},'${cname}',${fid})"><i class="fas fa-trash"></i></button>` : ''}
                             </div>
                         `;
                     },
@@ -397,11 +425,13 @@ function closeContactoFormModal() {
     editingContactoId = null;
 }
 
-async function editContacto(id) {
+async function editContacto(id, farmaciaId) {
+    const fid = farmaciaId || currentFarmaciaId;
     try {
-        const data = await apiFetch(`/farmacias/${currentFarmaciaId}/contactos/${id}`);
+        const data = await apiFetch(`/farmacias/${fid}/contactos/${id}`);
         const contacto = data.contacto || data.data || data;
         editingContactoId = id;
+        currentFarmaciaId = fid; // restaurar por si acaso
 
         document.getElementById('contacto-modal-title').textContent = 'Editar Contacto';
         document.getElementById('c-nombre').value = contacto.nombre_contacto || '';
@@ -422,6 +452,14 @@ async function saveContacto() {
 
     if (!nombre || !id_cargo) {
         Swal.fire('Validación', 'Nombre y cargo son obligatorios', 'warning');
+        return;
+    }
+    if (telefono && telefono.length !== 8) {
+        Swal.fire('Validación', 'El teléfono debe tener exactamente 8 dígitos', 'warning');
+        return;
+    }
+    if (email && !esEmailValido(email)) {
+        Swal.fire('Validación', 'El email ingresado no es válido', 'warning');
         return;
     }
 
@@ -449,7 +487,8 @@ async function saveContacto() {
     }
 }
 
-async function deleteContacto(id, nombre) {
+async function deleteContacto(id, nombre, farmaciaId) {
+    const fid = farmaciaId || currentFarmaciaId;
     const result = await Swal.fire({
         title: '¿Eliminar contacto?',
         text: `Se eliminará "${nombre}".`,
@@ -463,7 +502,7 @@ async function deleteContacto(id, nombre) {
     if (!result.isConfirmed) return;
 
     try {
-        await apiFetch(`/farmacias/${currentFarmaciaId}/contactos/${id}`, { method: 'DELETE' });
+        await apiFetch(`/farmacias/${fid}/contactos/${id}`, { method: 'DELETE' });
         Swal.fire('Eliminado', 'Contacto eliminado correctamente', 'success');
         await loadContactos();
         await reloadDataTable(farmaciasTable, '/farmacias');
