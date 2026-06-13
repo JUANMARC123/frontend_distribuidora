@@ -35,12 +35,12 @@ function renderPage() {
             <div class="modal-body">
                 <form id="main-form">
                     <div class="form-row">
-                        <div class="form-group"><label>Nombre *</label><input type="text" id="f-nombre" class="form-control" required></div>
-                        <div class="form-group"><label>Apellido *</label><input type="text" id="f-apellido" class="form-control" required></div>
+                        <div class="form-group"><label>Nombre *</label><input type="text" id="f-nombre" class="form-control" required placeholder="Solo letras" oninput="this.value=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ ]/g,''); generarEmail()"></div>
+                        <div class="form-group"><label>Apellido *</label><input type="text" id="f-apellido" class="form-control" required placeholder="Solo letras" oninput="this.value=this.value.replace(/[^a-zA-ZáéíóúÁÉÍÓÚñÑ ]/g,''); generarEmail()"></div>
                     </div>
                     <div class="form-row">
-                        <div class="form-group"><label>Email *</label><input type="email" id="f-email" class="form-control" required></div>
-                        <div class="form-group"><label>Teléfono</label><input type="text" id="f-telefono" class="form-control"></div>
+                        <div class="form-group"><label>Email *</label><input type="email" id="f-email" class="form-control" required placeholder="Se genera automáticamente" oninput="this.dataset.manual='1'"></div>
+                        <div class="form-group"><label>Teléfono</label><input type="text" id="f-telefono" class="form-control" placeholder="8 dígitos" maxlength="8" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)"></div>
                     </div>
                     <div class="form-group"><label>Contraseña ${editingId ? '(dejar vacío para no cambiar)' : '*'}</label><input type="password" id="f-password" class="form-control" ${editingId ? '' : 'required'}></div>
                     <div class="form-group"><label>Estado</label><select id="f-estado" class="form-control">${estadosUsuario.map(e => `<option value="${e.id_estado_usuario}">${e.nombre_estado}</option>`).join('')}</select></div>
@@ -85,10 +85,23 @@ async function loadTable() {
     } catch (e) { Swal.fire('Error', 'Error al cargar usuarios', 'error'); }
 }
 
+function generarEmail() {
+    const nombre   = document.getElementById('f-nombre').value.trim().split(' ')[0].toLowerCase();
+    const apellido = document.getElementById('f-apellido').value.trim().split(' ')[0].toLowerCase();
+    if (!nombre && !apellido) return;
+    const limpiar = s => s.normalize('NFD').replace(/[\u0300-\u036f]/g, '').replace(/[^a-z]/g, '');
+    const emailField = document.getElementById('f-email');
+    // Solo autogenera si el campo está vacío o fue autogenerado antes
+    if (!emailField.dataset.manual) {
+        emailField.value = limpiar(nombre) + '.' + limpiar(apellido) + '@distribuidora.com';
+    }
+}
+
 function openCreateModal() {
     editingId = null;
     document.getElementById('modal-title').textContent = 'Nuevo Usuario';
     document.getElementById('main-form').reset();
+    document.getElementById('f-email').dataset.manual = '';
     document.getElementById('f-password').required = true;
     document.getElementById('main-modal').classList.add('active');
 }
@@ -125,6 +138,7 @@ async function save() {
     const password = document.getElementById('f-password').value;
     if (password) body.password = password;
     if (!body.nombre || !body.apellido || !body.email) return Swal.fire('Validación', 'Nombre, apellido y email son obligatorios', 'warning');
+    if (body.telefono && body.telefono.length !== 8) return Swal.fire('Validación', 'El teléfono debe tener exactamente 8 dígitos', 'warning');
 
     try {
         if (editingId) {

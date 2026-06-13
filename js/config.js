@@ -180,3 +180,21 @@ function getModulePermissions(modulo) {
 function anyModulePermisos() {
     return userPermissions.length > 0;
 }
+
+const DOCUMENTOS = [
+    { id: 'manual-usuario', titulo: 'Manual de Usuario', descripcion: 'Guía completa para el uso del sistema de gestión de distribución Pw3c.', archivo: 'docs/Manual_de_Usuario_Pw3c.pdf', icono: 'fa-user-graduate' },
+    { id: 'manual-tecnico', titulo: 'Manual Técnico', descripcion: 'Documentación técnica del sistema, incluye arquitectura, API y configuración.', archivo: 'docs/Manual_Tecnico_Pw3c.pdf', icono: 'fa-cogs' },
+];
+
+function verDocumento(archivo) {
+    window.open(archivo, '_blank');
+}
+
+function descargarDocumento(archivo, titulo) {
+    const a = document.createElement('a');
+    a.href = archivo;
+    a.download = titulo || archivo.split('/').pop();
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+}

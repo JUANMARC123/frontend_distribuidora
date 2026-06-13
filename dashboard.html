@@ -24,31 +24,44 @@
         </header>
 
         <div class="content" id="page-content">
+            <div id="bienvenida-banner" class="card mb-6" style="display:none;border-left:4px solid #3b82f6;background:linear-gradient(135deg,#eff6ff,#ffffff);">
+                <div class="card-body">
+                    <div style="display:flex;align-items:flex-start;gap:16px;flex-wrap:wrap;">
+                        <div style="flex:1;min-width:200px;">
+                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;">
+                                <div style="width:40px;height:40px;border-radius:10px;background:#dbeafe;display:flex;align-items:center;justify-content:center;">
+                                    <i class="fas fa-file-pdf" style="color:#2563eb;font-size:18px;"></i>
+                                </div>
+                                <div>
+                                    <h3 style="font-size:16px;font-weight:600;margin:0;">¡Bienvenido al Sistema!</h3>
+                                    <p style="font-size:13px;color:var(--text-muted);margin:2px 0 0 0;">Revisa los manuales disponibles para conocer el sistema</p>
+                                </div>
+                            </div>
+                            <div id="bienvenida-docs" style="display:flex;gap:10px;flex-wrap:wrap;margin-top:4px;"></div>
+                        </div>
+                        <button class="btn btn-secondary btn-sm" onclick="ocultarBannerBienvenida()" style="align-self:flex-start;">
+                            <i class="fas fa-check"></i> Entendido
+                        </button>
+                    </div>
+                </div>
+            </div>
             <div class="stats-grid" id="stats-cards">
-                <div class="stat-card"><div class="icon blue"><i class="fas fa-box"></i></div><div class="info"><div class="label">Pedidos</div><div class="value" id="stat-pedidos">—</div></div></div>
-                <div class="stat-card"><div class="icon green"><i class="fas fa-truck"></i></div><div class="info"><div class="label">Despachos</div><div class="value" id="stat-despachos">—</div></div></div>
-                <div class="stat-card"><div class="icon yellow"><i class="fas fa-hospital"></i></div><div class="info"><div class="label">Farmacias</div><div class="value" id="stat-farmacias">—</div></div></div>
-                <div class="stat-card"><div class="icon purple"><i class="fas fa-users"></i></div><div class="info"><div class="label">Repartidores</div><div class="value" id="stat-repartidores">—</div></div></div>
-                <div class="stat-card"><div class="icon cyan"><i class="fas fa-car"></i></div><div class="info"><div class="label">Vehículos</div><div class="value" id="stat-vehiculos">—</div></div></div>
-                <div class="stat-card"><div class="icon red"><i class="fas fa-exclamation-triangle"></i></div><div class="info"><div class="label">Incidencias</div><div class="value" id="stat-incidencias">—</div></div></div>
+                <div class="stat-card"><div class="icon blue"><i class="fas fa-box"></i></div><div class="info"><div class="label">Pedidos</div><div class="value" id="stat-pedidos"><span class="stat-skeleton"></span></div></div></div>
+                <div class="stat-card"><div class="icon green"><i class="fas fa-truck"></i></div><div class="info"><div class="label">Despachos</div><div class="value" id="stat-despachos"><span class="stat-skeleton"></span></div></div></div>
+                <div class="stat-card"><div class="icon yellow"><i class="fas fa-hospital"></i></div><div class="info"><div class="label">Farmacias</div><div class="value" id="stat-farmacias"><span class="stat-skeleton"></span></div></div></div>
+                <div class="stat-card"><div class="icon purple"><i class="fas fa-users"></i></div><div class="info"><div class="label">Repartidores</div><div class="value" id="stat-repartidores"><span class="stat-skeleton"></span></div></div></div>
+                <div class="stat-card"><div class="icon cyan"><i class="fas fa-car"></i></div><div class="info"><div class="label">Vehículos</div><div class="value" id="stat-vehiculos"><span class="stat-skeleton"></span></div></div></div>
+                <div class="stat-card"><div class="icon red"><i class="fas fa-exclamation-triangle"></i></div><div class="info"><div class="label">Incidencias</div><div class="value" id="stat-incidencias"><span class="stat-skeleton"></span></div></div></div>
             </div>
 
-            <div class="chart-grid">
+            <div class="chart-grid chart-grid-2col">
                 <div class="card">
-                    <div class="card-header"><h3>Pedidos por Estado</h3></div>
+                    <div class="card-header"><h3><i class="fas fa-box" style="color:#3b82f6;margin-right:8px;"></i>Pedidos por Estado</h3></div>
                     <div class="card-body"><div class="chart-container"><canvas id="chart-pedidos-estado"></canvas></div></div>
                 </div>
                 <div class="card">
-                    <div class="card-header"><h3>Despachos por Estado</h3></div>
+                    <div class="card-header"><h3><i class="fas fa-truck" style="color:#10b981;margin-right:8px;"></i>Despachos por Estado</h3></div>
                     <div class="card-body"><div class="chart-container"><canvas id="chart-despachos-estado"></canvas></div></div>
-                </div>
-                <div class="card">
-                    <div class="card-header"><h3>Pedidos por Día (últimos 7)</h3></div>
-                    <div class="card-body"><div class="chart-container"><canvas id="chart-pedidos-dia"></canvas></div></div>
-                </div>
-                <div class="card">
-                    <div class="card-header"><h3>Distribución de Flota</h3></div>
-                    <div class="card-body"><div class="chart-container"><canvas id="chart-flota"></canvas></div></div>
                 </div>
             </div>
         </div>
