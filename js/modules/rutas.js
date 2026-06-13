@@ -100,10 +100,40 @@ async function save() {
 }
 
 async function del(id, name) {
-    const r = await Swal.fire({ title: '¿Eliminar ruta?', text: `Se eliminará "${name}".`, icon: 'warning', showCancelButton: true, confirmButtonText: 'Sí, eliminar', cancelButtonText: 'Cancelar', confirmButtonColor: '#ef4444' });
+    const r = await Swal.fire({
+        title: '¿Eliminar ruta?',
+        text: `Se eliminará "${name}". Esta acción no se puede deshacer.`,
+        icon: 'warning',
+        showCancelButton: true,
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'Cancelar',
+        confirmButtonColor: '#ef4444'
+    });
+
     if (!r.isConfirmed) return;
-    try { await apiFetch(`/rutas/${id}`, { method: 'DELETE' }); Swal.fire('Eliminada', 'Ruta eliminada', 'success'); if (rutasTable) await reloadDataTable(rutasTable, '/rutas'); }
-    catch (e) { Swal.fire('Error', e.message || 'Error al eliminar', 'error'); }
+
+    try {
+        await apiFetch(`/rutas/${id}`, { method: 'DELETE' });
+
+        Swal.fire('Eliminada', 'Ruta eliminada exitosamente.', 'success');
+
+        if (rutasTable) await reloadDataTable(rutasTable, '/rutas');
+    } catch (e) {
+        if (e.status === 409 || e.has_controls || e.data?.has_controls) {
+            Swal.fire({
+                title: 'No se puede eliminar esta ruta',
+                html: `
+                    <p>Esta ruta está asociada a controles de ruta registrados.</p>
+                    <p>Para conservar el historial del sistema, no puede eliminarse.</p>
+                `,
+                icon: 'info',
+                confirmButtonText: 'Entendido'
+            });
+            return;
+        }
+
+        Swal.fire('Error', e.message || 'Error al eliminar', 'error');
+    }
 }
 
 // Paradas management
