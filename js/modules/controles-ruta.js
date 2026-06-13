@@ -98,7 +98,7 @@ async function edit(id) {
         document.getElementById('f-fecha').value = c.fecha_ruta || '';
         document.getElementById('f-repartidor').value = c.id_repartidor || '';
         document.getElementById('f-vehiculo').value = c.id_vehiculo || '';
-        document.getElementById('f-salida').value = c.hora_salida || '';
+        document.getElementById('f-salida').value = c.hora_salida ? c.hora_salida.substring(0, 5) : '';
         document.getElementById('main-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar el control', 'error'); }
 }
@@ -109,7 +109,7 @@ async function save() {
         fecha_ruta: document.getElementById('f-fecha').value,
         id_repartidor: parseInt(document.getElementById('f-repartidor').value),
         id_vehiculo: parseInt(document.getElementById('f-vehiculo').value),
-        hora_salida: (document.getElementById('f-salida').value || null) ? document.getElementById('f-salida').value + ':00' : null,
+        hora_salida: (() => { const v = document.getElementById('f-salida').value; return v ? (v.includes(':') && v.split(':').length === 3 ? v : v + ':00') : null; })(),
     };
     if (!body.id_ruta || !body.fecha_ruta || !body.id_repartidor || !body.id_vehiculo)
         return Swal.fire('Validación', 'Todos los campos obligatorios deben estar completos', 'warning');

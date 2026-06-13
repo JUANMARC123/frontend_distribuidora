@@ -119,7 +119,10 @@ async function loadCatalogo(key) {
     const d = await apiFetch(`/catalogos/${key}`);
     const data = Array.isArray(d) ? d : (d.data || []);
 
-    if ($.fn.DataTable.isDataTable('#main-table')) catalogoTable.destroy();
+    if ($.fn.DataTable.isDataTable('#main-table')) {
+        catalogoTable.destroy();
+        $('#main-table tbody').empty();
+    }
 
     const columns = buildColumns(key, canWrite);
     catalogoTable = $('#main-table').DataTable({
@@ -145,7 +148,7 @@ function buildColumns(key, canWrite) {
   } else if (key === 'capacidades') {
     cols.push({
       data: 'capacidad_kg', title: 'Capacidad (kg)',
-      render: r => `${r} kg`
+      render: r => r != null ? `${r} kg` : '—'
     });
   } else {
     cols.push({ data: c.field, title: c.label });

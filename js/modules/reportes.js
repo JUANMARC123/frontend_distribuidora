@@ -24,6 +24,16 @@ document.addEventListener('DOMContentLoaded', function () {
         return;
     }
 
+    const docsBanner = document.getElementById('docs-banner-reportes');
+    const docsContainer = document.getElementById('docs-banner-reportes-container');
+    if (docsBanner && docsContainer) {
+        const movido = localStorage.getItem('docs_banner_moved_to_reportes');
+        if (movido === 'true') {
+            renderDocsBanner(docsContainer);
+            docsBanner.style.display = 'block';
+        }
+    }
+
     document.querySelectorAll('[data-report]').forEach(btn => {
         btn.addEventListener('click', function () {
             const report = this.dataset.report;

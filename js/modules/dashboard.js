@@ -170,33 +170,37 @@ function initBienvenidaBanner() {
     const docsContainer = document.getElementById('bienvenida-docs');
     if (!banner || !docsContainer) return;
 
-    const yaVisto = localStorage.getItem('first_time_docs');
-    if (yaVisto) return;
+    const movido = localStorage.getItem('docs_banner_moved_to_reportes');
+    if (movido === 'true') return;
 
-    localStorage.setItem('first_time_docs', 'done');
-
-    DOCUMENTOS.forEach(doc => {
-        const btn = document.createElement('button');
-        btn.className = 'btn btn-sm btn-primary';
-        btn.innerHTML = `<i class="fas fa-file-pdf"></i> ${doc.titulo}`;
-        btn.onclick = () => verDocumento(doc.archivo);
-        docsContainer.appendChild(btn);
-
-        const btnDownload = document.createElement('button');
-        btnDownload.className = 'btn btn-sm btn-success';
-        btnDownload.innerHTML = `<i class="fas fa-download"></i>`;
-        btnDownload.title = `Descargar ${doc.titulo}`;
-        btnDownload.onclick = () => descargarDocumento(doc.archivo, `${doc.titulo}.pdf`);
-        btnDownload.style.marginLeft = '4px';
-        docsContainer.appendChild(btnDownload);
-    });
-
+    renderDocsBanner(docsContainer);
     banner.style.display = 'block';
 }
 
-function ocultarBannerBienvenida() {
-    const banner = document.getElementById('bienvenida-banner');
-    if (banner) banner.style.display = 'none';
+function eliminarBannerBienvenida() {
+    Swal.fire({
+        title: '¿Eliminar banner de documentos?',
+        text: 'El banner con los manuales se moverá a la página de Reportes.',
+        icon: 'question',
+        showCancelButton: true,
+        confirmButtonColor: '#dc3545',
+        cancelButtonColor: '#6c757d',
+        confirmButtonText: 'Sí, eliminar',
+        cancelButtonText: 'No, cancelar'
+    }).then(result => {
+        if (result.isConfirmed) {
+            const banner = document.getElementById('bienvenida-banner');
+            if (banner) banner.style.display = 'none';
+            localStorage.setItem('docs_banner_moved_to_reportes', 'true');
+            Swal.fire({
+                title: 'Eliminado',
+                text: 'El banner ahora estará disponible en la página de Reportes.',
+                icon: 'success',
+                timer: 2000,
+                showConfirmButton: false
+            });
+        }
+    });
 }
 
 function renderLineChart(canvasId, data, label) {

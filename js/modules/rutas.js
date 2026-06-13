@@ -154,16 +154,17 @@ async function editParada(id) {
         document.getElementById('parada-form-title').textContent = 'Editar Parada';
         document.getElementById('p-farmacia').value = p.id_farmacia || '';
         document.getElementById('p-orden').value = p.orden_parada || '';
-        document.getElementById('p-hora').value = p.hora_estimada || '';
+        document.getElementById('p-hora').value = p.hora_estimada ? p.hora_estimada.substring(0, 5) : '';
         document.getElementById('parada-form-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar la parada', 'error'); }
 }
 
 async function saveParada() {
+    const horaVal = document.getElementById('p-hora').value;
     const body = {
         id_farmacia: parseInt(document.getElementById('p-farmacia').value),
         orden_parada: parseInt(document.getElementById('p-orden').value),
-        hora_estimada: document.getElementById('p-hora').value,
+        hora_estimada: horaVal ? horaVal + ':00' : null,
     };
     if (!body.id_farmacia || !body.orden_parada) return Swal.fire('Validación', 'Farmacia y orden son obligatorios', 'warning');
     try {

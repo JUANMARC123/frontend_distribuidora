@@ -186,6 +186,26 @@ const DOCUMENTOS = [
     { id: 'manual-tecnico', titulo: 'Manual Técnico', descripcion: 'Documentación técnica del sistema, incluye arquitectura, API y configuración.', archivo: 'docs/Manual_Tecnico_Pw3c.pdf', icono: 'fa-cogs' },
 ];
 
+function renderDocsBanner(container) {
+    if (!container) return;
+    container.innerHTML = '';
+    DOCUMENTOS.forEach(doc => {
+        const btn = document.createElement('button');
+        btn.className = 'btn btn-sm btn-primary';
+        btn.innerHTML = `<i class="fas fa-file-pdf"></i> ${doc.titulo}`;
+        btn.onclick = () => verDocumento(doc.archivo);
+        container.appendChild(btn);
+
+        const btnDownload = document.createElement('button');
+        btnDownload.className = 'btn btn-sm btn-success';
+        btnDownload.innerHTML = `<i class="fas fa-download"></i>`;
+        btnDownload.title = `Descargar ${doc.titulo}`;
+        btnDownload.onclick = () => descargarDocumento(doc.archivo, `${doc.titulo}.pdf`);
+        btnDownload.style.marginLeft = '4px';
+        container.appendChild(btnDownload);
+    });
+}
+
 function verDocumento(archivo) {
     window.open(archivo, '_blank');
 }
