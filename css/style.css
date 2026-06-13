@@ -895,3 +895,38 @@ textarea.form-control {
 .items-center { align-items: center; }
 .justify-between { justify-content: space-between; }
 .w-full { width: 100%; }
+
+/* ===== DASHBOARD FIXES ===== */
+.chart-grid-2col {
+    grid-template-columns: 1fr 1fr !important;
+    gap: 24px;
+}
+
+@media (max-width: 900px) {
+    .chart-grid-2col {
+        grid-template-columns: 1fr !important;
+    }
+}
+
+/* Skeleton loader para stat-cards */
+.stat-skeleton {
+    display: inline-block;
+    width: 60px;
+    height: 32px;
+    background: linear-gradient(90deg, #e2e8f0 25%, #f1f5f9 50%, #e2e8f0 75%);
+    background-size: 200% 100%;
+    border-radius: 6px;
+    animation: skeleton-shimmer 1.4s infinite;
+    vertical-align: middle;
+}
+
+@keyframes skeleton-shimmer {
+    0%   { background-position: 200% 0; }
+    100% { background-position: -200% 0; }
+}
+
+.stat-card .info .value {
+    min-height: 34px;
+    display: flex;
+    align-items: center;
+}

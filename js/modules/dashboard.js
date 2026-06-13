@@ -12,9 +12,13 @@ document.addEventListener('DOMContentLoaded', async function () {
 
     try {
         const resumen = await apiFetch('/reportes/resumen');
+        console.log('[Dashboard] Resumen recibido:', resumen); // debug
         updateStats(resumen);
     } catch (e) {
         console.error('Error cargando resumen:', e);
+        // Si falla, mostrar 0 en vez de skeleton infinito
+        ['stat-pedidos','stat-despachos','stat-farmacias','stat-repartidores','stat-vehiculos','stat-incidencias']
+            .forEach(id => { document.getElementById(id).textContent = '0'; });
     }
 
     loadCharts();
@@ -24,30 +28,25 @@ function updateStats(data) {
     const set = (id, val) => {
         document.getElementById(id).textContent = val ?? '—';
     };
-    set('stat-pedidos', data.pedidos ?? data.total_pedidos ?? data.pedidos_count);
-    set('stat-despachos', data.despachos ?? data.total_despachos ?? data.despachos_count);
-    set('stat-farmacias', data.farmacias ?? data.total_farmacias ?? data.farmacias_count);
-    set('stat-repartidores', data.repartidores ?? data.total_repartidores ?? data.repartidores_count);
-    set('stat-vehiculos', data.vehiculos ?? data.total_vehiculos ?? data.vehiculos_count);
-    set('stat-incidencias', data.incidencias ?? data.total_incidencias ?? data.incidencias_count);
+    // El backend devuelve: data.data.total_pedidos, total_despachos, etc.
+    const d = data.data ?? data;
+    set('stat-pedidos',      d.total_pedidos      ?? d.pedidos      ?? '0');
+    set('stat-despachos',    d.total_despachos    ?? d.despachos    ?? '0');
+    set('stat-farmacias',    d.total_farmacias    ?? d.farmacias    ?? '0');
+    set('stat-repartidores', d.total_repartidores ?? d.repartidores ?? '0');
+    set('stat-vehiculos',    d.total_vehiculos    ?? d.vehiculos    ?? '0');
+    set('stat-incidencias',  d.total_incidencias  ?? d.incidencias  ?? '0');
 }
 
 async function loadCharts() {
     try {
-        const [pedidosEstado, despachosEstado, pedidosDia, repartidoresEstado, vehiculosEstado] = await Promise.all([
+        const [pedidosEstado, despachosEstado] = await Promise.all([
             apiFetch('/reportes/pedidos-por-estado').catch(() => null),
             apiFetch('/reportes/despachos-por-estado').catch(() => null),
-            apiFetch('/reportes/pedidos-por-dia').catch(() => null),
-            apiFetch('/reportes/repartidores-por-estado').catch(() => null),
-            apiFetch('/reportes/vehiculos-por-estado').catch(() => null),
         ]);
 
         if (pedidosEstado && pedidosEstado.data) renderDoughnutChart('chart-pedidos-estado', pedidosEstado.data, 'Pedidos por Estado');
-        if (despachosEstado && despachosEstado.data) renderDoughnutChart('chart-despachos-estado', despachosEstado.data, 'Despachos por Estado');
-        if (pedidosDia && pedidosDia.data) renderLineChart('chart-pedidos-dia', pedidosDia.data, 'Pedidos por Día');
-
-        const flotaData = mergeFlotaData(repartidoresEstado?.data, vehiculosEstado?.data);
-        if (flotaData) renderDoughnutChart('chart-flota', flotaData, 'Distribución de Flota');
+        if (despachosEstado && despachosEstado.data) renderBarChart('chart-despachos-estado', despachosEstado.data, 'Despachos por Estado');
 
     } catch (e) {
         console.error('Error cargando charts:', e);
@@ -73,6 +72,54 @@ function mergeFlotaData(repartidores, vehiculos) {
         });
     }
     return { labels, values };
+}
+
+function renderBarChart(canvasId, data, label) {
+    const ctx = document.getElementById(canvasId);
+    if (!ctx) return;
+
+    const colors = ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6', '#06b6d4'];
+    const labels = [];
+    const values = [];
+
+    if (Array.isArray(data)) {
+        data.forEach((item, i) => {
+            labels.push(item.label || item.nombre_estado || item.estado || `Item ${i + 1}`);
+            values.push(item.count ?? item.value ?? item.total ?? 0);
+        });
+    } else if (typeof data === 'object') {
+        Object.entries(data).forEach(([k, v]) => {
+            labels.push(k);
+            values.push(v.count ?? v.value ?? v.total ?? v ?? 0);
+        });
+    }
+
+    new Chart(ctx, {
+        type: 'bar',
+        data: {
+            labels,
+            datasets: [{
+                label: label,
+                data: values,
+                backgroundColor: colors.slice(0, values.length),
+                borderRadius: 6,
+                borderSkipped: false,
+            }]
+        },
+        options: {
+            indexAxis: 'y',
+            responsive: true,
+            maintainAspectRatio: false,
+            plugins: {
+                legend: { display: false },
+                tooltip: { callbacks: { label: ctx => ` ${ctx.parsed.x} despachos` } }
+            },
+            scales: {
+                x: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(0,0,0,0.05)' } },
+                y: { grid: { display: false }, ticks: { font: { size: 13 } } }
+            }
+        }
+    });
 }
 
 function renderDoughnutChart(canvasId, data, label) {
