@@ -1,9 +1,9 @@
-let pedidosTable, editingId = null, farmaciasList = [], estadosPedido = [];
+let pedidosTable, editingId = null, farmaciasList = [], estadosPedido = [], productosList = [];
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (!checkAuth()) return;
     if (!hasPermission('Pedidos', 'acceder')) { window.location.href = '../dashboard.html'; return; }
-    await Promise.all([loadFarmacias(), loadEstados()]);
+    await Promise.all([loadFarmacias(), loadEstados(), loadProductos()]);
     renderPage();
 });
 
@@ -17,6 +17,11 @@ async function loadEstados() {
     catch (e) { estadosPedido = [{ id_estado_pedido: 1, nombre_estado: 'Pendiente' }, { id_estado_pedido: 2, nombre_estado: 'Aprobado' }, { id_estado_pedido: 3, nombre_estado: 'Despachado' }, { id_estado_pedido: 4, nombre_estado: 'Cancelado' }]; }
 }
 
+async function loadProductos() {
+    try { const d = await apiFetch('/productos'); productosList = Array.isArray(d) ? d : (d.data || []); }
+    catch (e) { productosList = []; }
+}
+
 function renderPage() {
     document.getElementById('page-content').innerHTML = `
         <div class="card">
@@ -26,7 +31,7 @@ function renderPage() {
             </div>
             <div class="card-body">
                 <div class="table-container"><table id="main-table" class="display" style="width:100%"><thead><tr>
-                    <th>ID</th><th>Farmacia</th><th>Usuario</th><th>Estado</th><th>Fecha</th><th>Acciones</th>
+                    <th>ID</th><th>Farmacia</th><th>Usuario</th><th>Estado</th><th>Total</th><th>Fecha</th><th>Acciones</th>
                 </tr></thead></table></div>
             </div>
         </div>
@@ -35,11 +40,22 @@ function renderPage() {
             <div class="modal-body">
                 <form id="main-form">
                     <div class="form-group"><label>Farmacia *</label><select id="f-farmacia" class="form-control" required><option value="">Seleccione...</option>${farmaciasList.map(f => `<option value="${f.id_farmacia}">${f.nombre}</option>`).join('')}</select></div>
-                    <div class="form-group"><label>Observaciones</label><textarea id="f-observaciones" class="form-control" rows="3"></textarea></div>
-                    <div class="form-group"><label>Estado</label><select id="f-estado" class="form-control">${estadosPedido.map(e => `<option value="${e.id_estado_pedido}">${e.nombre_estado}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Observaciones</label><textarea id="f-observaciones" class="form-control" rows="2"></textarea></div>
+                    <hr>
+                    <h4>Productos</h4>
+                    <table class="table" id="detalle-table" style="width:100%">
+                        <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th><th></th></tr></thead>
+                        <tbody id="detalle-body"></tbody>
+                    </table>
+                    <button type="button" class="btn btn-sm btn-secondary" onclick="addDetalleRow()"><i class="fas fa-plus"></i> Agregar Producto</button>
+                    <div class="form-group" style="margin-top:10px"><label>Estado</label><select id="f-estado" class="form-control">${estadosPedido.map(e => `<option value="${e.id_estado_pedido}">${e.nombre_estado}</option>`).join('')}</select></div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="save()">Guardar</button></div>
+        </div></div>
+        <div id="view-modal" class="modal-overlay"><div class="modal">
+            <div class="modal-header"><h3>Detalle del Pedido</h3><button class="modal-close" onclick="closeViewModal()">&times;</button></div>
+            <div class="modal-body" id="view-body"></div>
         </div></div>
         <div id="estado-modal" class="modal-overlay"><div class="modal" style="max-width:400px;">
             <div class="modal-header"><h3>Cambiar Estado</h3><button class="modal-close" onclick="closeEstadoModal()">&times;</button></div>
@@ -51,6 +67,65 @@ function renderPage() {
         </div></div>
     `;
     loadTable();
+}
+
+function addDetalleRow(producto, cantidad, precio) {
+    const tbody = document.getElementById('detalle-body');
+    const row = document.createElement('tr');
+    const idx = tbody.children.length;
+    const prodOpts = productosList.map(p => `<option value="${p.id_producto}" data-precio="${p.precio_unitario}" ${producto && p.id_producto == producto ? 'selected' : ''}>${p.nombre_producto}</option>`).join('');
+    row.innerHTML = `
+        <td><select class="form-control detalle-producto" required>${prodOpts}</select></td>
+        <td><input type="number" class="form-control detalle-cantidad" step="0.01" min="0.01" value="${cantidad || ''}" required></td>
+        <td><input type="number" class="form-control detalle-precio" step="0.01" min="0" value="${precio || ''}" required></td>
+        <td><span class="detalle-subtotal">${precio && cantidad ? (cantidad * precio).toFixed(2) : ''}</span></td>
+        <td><button type="button" class="btn btn-sm btn-danger" onclick="this.closest('tr').remove()"><i class="fas fa-times"></i></button></td>
+    `;
+    tbody.appendChild(row);
+
+    const prodSel = row.querySelector('.detalle-producto');
+    const cantInput = row.querySelector('.detalle-cantidad');
+    const precInput = row.querySelector('.detalle-precio');
+    const subtSpan = row.querySelector('.detalle-subtotal');
+
+    function updateSubtotal() {
+        const qty = parseFloat(cantInput.value) || 0;
+        const prc = parseFloat(precInput.value) || 0;
+        subtSpan.textContent = (qty * prc).toFixed(2);
+    }
+
+    prodSel.addEventListener('change', function() {
+        const opt = this.options[this.selectedIndex];
+        if (opt && opt.dataset.precio) {
+            precInput.value = opt.dataset.precio;
+        }
+        updateSubtotal();
+    });
+    cantInput.addEventListener('input', updateSubtotal);
+    precInput.addEventListener('input', updateSubtotal);
+}
+
+function getDetalleData() {
+    const rows = document.querySelectorAll('#detalle-body tr');
+    const detalles = [];
+    rows.forEach(row => {
+        const prod = row.querySelector('.detalle-producto').value;
+        const cant = row.querySelector('.detalle-cantidad').value;
+        const prec = row.querySelector('.detalle-precio').value;
+        if (prod) {
+            detalles.push({
+                id_producto: parseInt(prod),
+                cantidad: parseFloat(cant) || 0,
+                precio_unitario: parseFloat(prec) || 0,
+            });
+        }
+    });
+    return detalles;
+}
+
+function calcTotal(detalles) {
+    if (!detalles || !detalles.length) return 0;
+    return detalles.reduce((sum, d) => sum + (parseFloat(d.cantidad) * parseFloat(d.precio_unitario || d.precio_unitario) || 0), 0);
 }
 
 async function loadTable() {
@@ -66,8 +141,10 @@ async function loadTable() {
                 { data: null, render: r => r.farmacia?.nombre || r.nombre_farmacia || '—' },
                 { data: null, render: r => { const u = r.usuario; return u ? `${u.nombre || ''} ${u.apellido || ''}`.trim() : (r.nombre_usuario || '—'); } },
                 { data: null, render: r => getStatusBadge(r.estado?.nombre_estado || r.nombre_estado || '—') },
+                { data: null, render: r => `Bs ${calcTotal(r.detalles || []).toFixed(2)}` },
                 { data: null, render: r => formatDate(r.fecha_pedido) },
                 { data: null, render: r => `<div class="actions">
+                    <button class="btn btn-sm btn-info" onclick="view(${r.id_pedido})"><i class="fas fa-eye"></i></button>
                     ${hasPermission('Pedidos', 'cambiar-estado') ? `<button class="btn btn-sm btn-info" onclick="openEstadoModal(${r.id_pedido},'#${r.id_pedido}')"><i class="fas fa-exchange-alt"></i></button>` : ''}
                     ${hasPermission('Pedidos', 'editar') ? `<button class="btn btn-sm btn-warning" onclick="edit(${r.id_pedido})"><i class="fas fa-edit"></i></button>` : ''}
                     ${hasPermission('Pedidos', 'eliminar') ? `<button class="btn btn-sm btn-danger" onclick="del(${r.id_pedido})"><i class="fas fa-trash"></i></button>` : ''}
@@ -81,10 +158,52 @@ function openCreateModal() {
     editingId = null;
     document.getElementById('modal-title').textContent = 'Nuevo Pedido';
     document.getElementById('main-form').reset();
+    document.getElementById('detalle-body').innerHTML = '';
+    addDetalleRow();
     document.getElementById('main-modal').classList.add('active');
 }
 
 function closeModal() { document.getElementById('main-modal').classList.remove('active'); editingId = null; }
+
+function closeViewModal() { document.getElementById('view-modal').classList.remove('active'); }
+
+async function view(id) {
+    try {
+        const d = await apiFetch(`/pedidos/${id}`);
+        const p = d.pedido || d.data || d;
+        const detalles = p.detalles || [];
+        const total = calcTotal(detalles);
+        const u = p.usuario || {};
+        document.getElementById('view-body').innerHTML = `
+            <div class="info-grid">
+                <div><strong># Pedido:</strong> ${p.id_pedido}</div>
+                <div><strong>Farmacia:</strong> ${p.farmacia?.nombre || '—'}</div>
+                <div><strong>Usuario:</strong> ${u.nombre || ''} ${u.apellido || ''}</div>
+                <div><strong>Estado:</strong> ${getStatusBadge(p.estado?.nombre_estado || '—')}</div>
+                <div><strong>Fecha:</strong> ${formatDate(p.fecha_pedido)}</div>
+                <div><strong>Total:</strong> Bs ${total.toFixed(2)}</div>
+                <div style="grid-column: span 2"><strong>Observaciones:</strong> ${p.observaciones || '—'}</div>
+            </div>
+            <hr>
+            <h4>Productos</h4>
+            <table class="table" style="width:100%">
+                <thead><tr><th>Producto</th><th>Cantidad</th><th>Precio Unit.</th><th>Subtotal</th></tr></thead>
+                <tbody>
+                    ${detalles.map(d => `
+                        <tr>
+                            <td>${d.producto?.nombre_producto || '—'}</td>
+                            <td>${d.cantidad}</td>
+                            <td>Bs ${parseFloat(d.precio_unitario).toFixed(2)}</td>
+                            <td>Bs ${parseFloat(d.subtotal).toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                </tbody>
+                <tfoot><tr><th colspan="3" style="text-align:right">Total</th><th>Bs ${total.toFixed(2)}</th></tr></tfoot>
+            </table>
+        `;
+        document.getElementById('view-modal').classList.add('active');
+    } catch (e) { Swal.fire('Error', 'No se pudo cargar el pedido', 'error'); }
+}
 
 async function edit(id) {
     try {
@@ -95,6 +214,13 @@ async function edit(id) {
         document.getElementById('f-farmacia').value = p.id_farmacia || '';
         document.getElementById('f-observaciones').value = p.observaciones || '';
         document.getElementById('f-estado').value = p.id_estado_pedido || '';
+        const tbody = document.getElementById('detalle-body');
+        tbody.innerHTML = '';
+        if (p.detalles && p.detalles.length) {
+            p.detalles.forEach(d => addDetalleRow(d.id_producto, d.cantidad, d.precio_unitario));
+        } else {
+            addDetalleRow();
+        }
         document.getElementById('main-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar el pedido', 'error'); }
 }
@@ -103,7 +229,9 @@ async function save() {
     const id_farmacia = parseInt(document.getElementById('f-farmacia').value);
     const observaciones = document.getElementById('f-observaciones').value.trim();
     const id_estado_pedido = parseInt(document.getElementById('f-estado').value);
+    const detalles = getDetalleData();
     if (!id_farmacia) return Swal.fire('Validación', 'Seleccione una farmacia', 'warning');
+    if (!detalles.length) return Swal.fire('Validación', 'Agregue al menos un producto', 'warning');
 
     const currentUser = getUser();
     const body = {
@@ -111,6 +239,7 @@ async function save() {
         observaciones,
         id_estado_pedido,
         id_usuario: currentUser?.id_usuario || currentUser?.id || null,
+        detalles,
     };
     try {
         if (editingId) {
@@ -160,7 +289,7 @@ async function del(id) {
         Swal.fire('Error', e.message || 'Error al eliminar', 'error');
     }
 }
-// Cambiar estado
+
 let estadoPedidoId = null;
 
 function openEstadoModal(id, ref) {

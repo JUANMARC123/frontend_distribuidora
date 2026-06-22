@@ -18,6 +18,8 @@ const MODULE_KEYS = {
     'Rutas': 'Rutas',
     'Control Rutas': 'Control Rutas',
     'Despachos': 'Despachos',
+    'Ventas': 'Ventas',
+    'Almacenes': 'Almacenes',
 };
 
 async function loadSidebar() {
@@ -44,12 +46,20 @@ async function loadSidebar() {
         { icon: 'fa-list', label: 'Catálogos', page: currentDir + 'pages/catalogos.html', moduleKey: 'Usuarios' },
         { icon: 'fa-hospital', label: 'Farmacias', page: currentDir + 'pages/farmacias.html', moduleKey: 'Farmacias' },
         { icon: 'fa-box', label: 'Pedidos', page: currentDir + 'pages/pedidos.html', moduleKey: 'Pedidos' },
+        { icon: 'fa-credit-card', label: 'Ventas', page: currentDir + 'pages/ventas.html', moduleKey: 'Ventas' },
         { section: 'Logística' },
         { icon: 'fa-truck', label: 'Repartidores', page: currentDir + 'pages/repartidores.html', moduleKey: 'Repartidores' },
         { icon: 'fa-car', label: 'Vehículos', page: currentDir + 'pages/vehiculos.html', moduleKey: 'Vehículos' },
         { icon: 'fa-route', label: 'Rutas', page: currentDir + 'pages/rutas.html', moduleKey: 'Rutas' },
         { icon: 'fa-map-marked-alt', label: 'Control Rutas', page: currentDir + 'pages/controles-ruta.html', moduleKey: 'Control Rutas' },
         { icon: 'fa-clipboard-check', label: 'Despachos', page: currentDir + 'pages/despachos.html', moduleKey: 'Despachos' },
+        { section: 'Inventario' },
+        { icon: 'fa-capsules', label: 'Productos', page: currentDir + 'pages/productos.html', moduleKey: 'Productos' },
+        { icon: 'fa-warehouse', label: 'Inventario', page: currentDir + 'pages/inventario.html', moduleKey: 'Inventario' },
+        { icon: 'fa-building', label: 'Almacenes', page: currentDir + 'pages/almacenes.html', moduleKey: 'Almacenes' },
+        { icon: 'fa-file-invoice', label: 'Compras', page: currentDir + 'pages/ordenes-compra.html', moduleKey: 'Compras' },
+        { icon: 'fa-undo-alt', label: 'Devoluciones', page: currentDir + 'pages/devoluciones.html', moduleKey: 'Devoluciones' },
+        { icon: 'fa-tags', label: 'Promociones', page: currentDir + 'pages/promociones.html', moduleKey: 'Promociones' },
     ];
 
     const navItems = allNavItems.filter(item => {

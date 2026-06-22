@@ -223,3 +223,35 @@ function descargarDocumento(archivo, titulo) {
     a.click();
     document.body.removeChild(a);
 }
+
+function getAuthHeaders() {
+    const token = localStorage.getItem('token');
+    const headers = { 'Accept': 'application/json' };
+    if (token && token !== 'undefined' && token !== 'null' && token.length > 20) {
+        headers['Authorization'] = `Bearer ${token}`;
+    }
+    return headers;
+}
+
+function openModal(id) {
+    const overlay = document.getElementById(id);
+    if (overlay) {
+        overlay.classList.add('active');
+        document.body.style.overflow = 'hidden';
+    }
+}
+
+function closeModal(id) {
+    const overlay = document.getElementById(id);
+    if (overlay) {
+        overlay.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+}
+
+document.addEventListener('click', function (e) {
+    if (e.target.classList.contains('modal-overlay') && e.target.classList.contains('active')) {
+        e.target.classList.remove('active');
+        document.body.style.overflow = '';
+    }
+});
