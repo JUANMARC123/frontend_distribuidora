@@ -2,6 +2,11 @@ let farmaciasTable;
 let cargosList = [];
 let editingFarmaciaId = null;
 let editingContactoId = null;
+let mapaModal = null;
+let markerModal = null;
+let mapaGlobal = null;
+let marcadoresGlobales = [];
+let ultimasFarmacias = [];
 
 // Helpers de validación
 function esEmailValido(email) {
@@ -42,26 +47,41 @@ async function loadCargos() {
 function renderPage() {
     const content = document.getElementById('page-content');
     content.innerHTML = `
-        <div class="card">
-            <div class="card-header">
-                <h3><i class="fas fa-hospital"></i> Listado de Farmacias</h3>
-                ${hasPermission('Farmacias', 'crear') ? '<button class="btn btn-primary" onclick="openFarmaciaModal()"><i class="fas fa-plus"></i> Nueva Farmacia</button>' : ''}
+        <div class="farmacias-split">
+            <div class="split-left">
+                <div class="card">
+                    <div class="card-header">
+                        <h3><i class="fas fa-hospital"></i> Listado de Farmacias</h3>
+                        ${hasPermission('Farmacias', 'crear') ? '<button class="btn btn-primary" onclick="openFarmaciaModal()"><i class="fas fa-plus"></i> Nueva Farmacia</button>' : ''}
+                    </div>
+                    <div class="card-body">
+                        <div class="table-container">
+                            <table id="farmacias-table" class="display" style="width:100%">
+                                <thead>
+                                    <tr>
+                                        <th>Nombre</th>
+                                        <th>Dirección</th>
+                                        <th>Teléfono</th>
+                                        <th>Email</th>
+                                        <th>Contactos</th>
+                                        <th>Acciones</th>
+                                    </tr>
+                                </thead>
+                                <tbody></tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
             </div>
-            <div class="card-body">
-                <div class="table-container">
-                    <table id="farmacias-table" class="display" style="width:100%">
-                        <thead>
-                            <tr>
-                                <th>Nombre</th>
-                                <th>Dirección</th>
-                                <th>Teléfono</th>
-                                <th>Email</th>
-                                <th>Contactos</th>
-                                <th>Acciones</th>
-                            </tr>
-                        </thead>
-                        <tbody></tbody>
-                    </table>
+            <div class="split-right">
+                <div class="card" style="height:100%;">
+                    <div class="card-header">
+                        <h3><i class="fas fa-map-marked-alt"></i> Mapa de Farmacias</h3>
+                        <span id="mapa-contador" style="font-size:13px;color:var(--text-muted);"></span>
+                    </div>
+                    <div class="card-body" style="padding:0;height:calc(100% - 52px);">
+                        <div id="mapa-farmacias-global" style="height:100%;min-height:450px;border-radius:0 0 var(--radius) var(--radius);"></div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -104,6 +124,8 @@ function renderPage() {
                                 <input type="number" step="any" id="f-longitud" class="form-control">
                             </div>
                         </div>
+                        <div id="coords-display" style="font-size:12px;color:#64748b;margin-bottom:8px;text-align:center;">Haz clic en el mapa para seleccionar ubicación</div>
+                        <div id="mapa-modal" style="height:300px;border-radius:8px;overflow:hidden;border:1px solid var(--border);margin-bottom:8px;"></div>
                     </form>
                 </div>
                 <div class="modal-footer">
@@ -185,11 +207,14 @@ function renderPage() {
     `;
 
     loadFarmacias();
+    setTimeout(initMapaGlobal, 300);
 }
+
+const FARMACIAS_ALL = '/farmacias?per_page=-1';
 
 async function loadFarmacias() {
     try {
-        const data = await apiFetch('/farmacias');
+        const data = await apiFetch(FARMACIAS_ALL);
         const farmacias = Array.isArray(data) ? data : (data.data || []);
 
         if ($.fn.DataTable.isDataTable('#farmacias-table')) {
@@ -231,6 +256,16 @@ async function loadFarmacias() {
             order: [[0, 'asc']],
             pageLength: 10,
         });
+
+        farmaciasTable.on('click', 'tbody tr', function () {
+            var data = farmaciasTable.row(this).data();
+            if (data) {
+                highlightMarker(data.id_farmacia);
+                centrarEnMapa(data.id_farmacia);
+            }
+        });
+
+        actualizarMarcadoresGlobales(farmacias);
     } catch (e) {
         Swal.fire('Error', 'No se pudieron cargar las farmacias: ' + e.message, 'error');
     }
@@ -241,11 +276,17 @@ function openFarmaciaModal(data) {
     document.getElementById('farmacia-modal-title').textContent = 'Nueva Farmacia';
     document.getElementById('form-farmacia').reset();
     document.getElementById('modal-farmacia').classList.add('active');
+    document.getElementById('coords-display').textContent = 'Haz clic en el mapa para seleccionar ubicación';
+    setTimeout(initMapaModal, 200);
 }
 
 function closeFarmaciaModal() {
     document.getElementById('modal-farmacia').classList.remove('active');
     editingFarmaciaId = null;
+    if (markerModal) {
+        mapaModal.removeLayer(markerModal);
+        markerModal = null;
+    }
 }
 
 async function editFarmacia(id) {
@@ -262,6 +303,18 @@ async function editFarmacia(id) {
         document.getElementById('f-latitud').value = farmacia.latitud || '';
         document.getElementById('f-longitud').value = farmacia.longitud || '';
         document.getElementById('modal-farmacia').classList.add('active');
+        document.getElementById('coords-display').textContent = farmacia.latitud
+            ? 'Lat: ' + parseFloat(farmacia.latitud).toFixed(6) + ' | Lng: ' + parseFloat(farmacia.longitud).toFixed(6)
+            : 'Haz clic en el mapa para seleccionar ubicación';
+        setTimeout(function () {
+            initMapaModal();
+            if (farmacia.latitud && farmacia.longitud) {
+                var lat = parseFloat(farmacia.latitud);
+                var lng = parseFloat(farmacia.longitud);
+                mapaModal.setView([lat, lng], 15);
+                setMarker(lat, lng);
+            }
+        }, 200);
     } catch (e) {
         Swal.fire('Error', 'No se pudo cargar la farmacia', 'error');
     }
@@ -317,7 +370,8 @@ async function saveFarmacia() {
             Swal.fire('Creado', 'Farmacia creada correctamente', 'success');
         }
         closeFarmaciaModal();
-        await reloadDataTable(farmaciasTable, '/farmacias');
+        await reloadDataTable(farmaciasTable, FARMACIAS_ALL);
+        await recargarMarcadoresGlobales();
     } catch (e) {
         Swal.fire('Error', e.message || 'Error al guardar', 'error');
     }
@@ -339,7 +393,8 @@ async function deleteFarmacia(id, nombre) {
     try {
         await apiFetch(`/farmacias/${id}`, { method: 'DELETE' });
         Swal.fire('Eliminado', 'Farmacia eliminada correctamente', 'success');
-        await reloadDataTable(farmaciasTable, '/farmacias');
+        await reloadDataTable(farmaciasTable, FARMACIAS_ALL);
+        await recargarMarcadoresGlobales();
     } catch (e) {
         const msg = e.message || '';
         if (msg.includes('foreign') || msg.includes('SQLSTATE') || msg.includes('constraint') || msg.includes('clave foránea')) {
@@ -482,7 +537,7 @@ async function saveContacto() {
         }
         closeContactoFormModal();
         await loadContactos();
-        await reloadDataTable(farmaciasTable, '/farmacias');
+        await reloadDataTable(farmaciasTable, FARMACIAS_ALL);
     } catch (e) {
         Swal.fire('Error', e.message || 'Error al guardar el contacto', 'error');
     }
@@ -506,8 +561,151 @@ async function deleteContacto(id, nombre, farmaciaId) {
         await apiFetch(`/farmacias/${fid}/contactos/${id}`, { method: 'DELETE' });
         Swal.fire('Eliminado', 'Contacto eliminado correctamente', 'success');
         await loadContactos();
-        await reloadDataTable(farmaciasTable, '/farmacias');
+        await reloadDataTable(farmaciasTable, FARMACIAS_ALL);
     } catch (e) {
         Swal.fire('Error', e.message || 'Error al eliminar', 'error');
     }
 }
+
+// --- Mapa Leaflet en formulario ---
+
+function initMapaModal() {
+    var container = document.getElementById('mapa-modal');
+    if (!container) return;
+    if (mapaModal) {
+        mapaModal.invalidateSize();
+        return;
+    }
+    mapaModal = L.map('mapa-modal').setView([-16.4897, -67.8217], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(mapaModal);
+    mapaModal.on('click', function (e) {
+        setMarker(e.latlng.lat, e.latlng.lng);
+        reverseGeocode(e.latlng.lat, e.latlng.lng);
+    });
+}
+
+function setMarker(lat, lng) {
+    if (markerModal) mapaModal.removeLayer(markerModal);
+    markerModal = L.marker([lat, lng], { draggable: true }).addTo(mapaModal);
+    markerModal.on('dragend', function (e) {
+        var pos = e.target.getLatLng();
+        document.getElementById('f-latitud').value = pos.lat.toFixed(8);
+        document.getElementById('f-longitud').value = pos.lng.toFixed(8);
+        document.getElementById('coords-display').textContent = 'Lat: ' + pos.lat.toFixed(6) + ' | Lng: ' + pos.lng.toFixed(6);
+        reverseGeocode(pos.lat, pos.lng);
+    });
+    document.getElementById('f-latitud').value = lat.toFixed(8);
+    document.getElementById('f-longitud').value = lng.toFixed(8);
+    document.getElementById('coords-display').textContent = 'Lat: ' + lat.toFixed(6) + ' | Lng: ' + lng.toFixed(6);
+}
+
+function reverseGeocode(lat, lng) {
+    var url = 'https://nominatim.openstreetmap.org/reverse?format=json&lat=' + lat + '&lon=' + lng;
+    fetch(url)
+        .then(function (r) { return r.json(); })
+        .then(function (data) {
+            if (data.display_name) document.getElementById('f-direccion').value = data.display_name;
+        })
+        .catch(function () {});
+}
+
+// --- Mapa global de todas las farmacias ---
+
+function initMapaGlobal() {
+    var container = document.getElementById('mapa-farmacias-global');
+    if (!container) return;
+    if (mapaGlobal) {
+        mapaGlobal.invalidateSize();
+        return;
+    }
+    mapaGlobal = L.map('mapa-farmacias-global').setView([-16.4897, -67.8217], 12);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a> contributors'
+    }).addTo(mapaGlobal);
+
+    if (ultimasFarmacias.length > 0) {
+        actualizarMarcadoresGlobales(ultimasFarmacias);
+    }
+}
+
+function actualizarMarcadoresGlobales(farmacias) {
+    ultimasFarmacias = farmacias;
+    if (!mapaGlobal) return;
+    for (var i = 0; i < marcadoresGlobales.length; i++) {
+        mapaGlobal.removeLayer(marcadoresGlobales[i].marker);
+    }
+    marcadoresGlobales = [];
+    var contar = 0;
+    for (var i = 0; i < farmacias.length; i++) {
+        var f = farmacias[i];
+        var lat = parseFloat(f.latitud);
+        var lng = parseFloat(f.longitud);
+        if (isNaN(lat) || isNaN(lng)) continue;
+        contar++;
+        var marker = L.circleMarker([lat, lng], {
+            radius: 7,
+            fillColor: '#3b82f6',
+            color: '#fff',
+            weight: 2,
+            opacity: 1,
+            fillOpacity: 0.8
+        }).addTo(mapaGlobal);
+        var zonaHtml = f.zona ? '<br><small>Zona: ' + f.zona + '</small>' : '';
+        marker.bindPopup(
+            '<b>' + f.nombre + '</b><br>' +
+            (f.direccion || 'Sin dirección') + '<br>' +
+            (f.telefono ? '📞 ' + f.telefono : '') + zonaHtml
+        );
+        marker.on('click', function (id) {
+            return function () { centrarEnMapa(id); };
+        }(f.id_farmacia));
+        marcadoresGlobales.push({ id: f.id_farmacia, marker: marker, data: f });
+    }
+    document.getElementById('mapa-contador').textContent = contar + ' farmacias en mapa';
+}
+
+var marcadorResaltadoId = null;
+
+function highlightMarker(id) {
+    if (marcadorResaltadoId === id) return;
+    if (marcadorResaltadoId !== null) {
+        for (var i = 0; i < marcadoresGlobales.length; i++) {
+            var m = marcadoresGlobales[i];
+            if (m.id === marcadorResaltadoId) {
+                m.marker.setStyle({ radius: 7, fillColor: '#3b82f6', fillOpacity: 0.8 });
+                break;
+            }
+        }
+    }
+    marcadorResaltadoId = id;
+    for (var i = 0; i < marcadoresGlobales.length; i++) {
+        var m = marcadoresGlobales[i];
+        if (m.id === id) {
+            m.marker.setStyle({ radius: 11, fillColor: '#f59e0b', fillOpacity: 1 });
+            break;
+        }
+    }
+}
+
+function centrarEnMapa(id) {
+    for (var i = 0; i < marcadoresGlobales.length; i++) {
+        if (marcadoresGlobales[i].id === id) {
+            var m = marcadoresGlobales[i];
+            mapaGlobal.setView([m.data.latitud, m.data.longitud], 16);
+            m.marker.openPopup();
+            break;
+        }
+    }
+}
+
+async function recargarMarcadoresGlobales() {
+    try {
+        const d = await apiFetch(FARMACIAS_ALL);
+        const data = Array.isArray(d) ? d : (d.data || []);
+        actualizarMarcadoresGlobales(data);
+    } catch (e) {}
+}
+
+// test

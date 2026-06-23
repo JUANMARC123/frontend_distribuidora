@@ -933,3 +933,291 @@ textarea.form-control {
 .swal2-container {
     z-index: 9999 !important;
 }
+
+/* GPS Page - Mapbox + Firebase */
+#gps-container {
+    position: relative;
+    width: 100%;
+    height: calc(100vh - var(--header-height) - 24px);
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+#gps-mapa {
+    width: 100%;
+    height: 100%;
+    border-radius: var(--radius);
+}
+
+#gps-panel {
+    position: absolute;
+    top: 10px;
+    left: 10px;
+    width: 280px;
+    max-height: calc(100% - 20px);
+    background: #fff;
+    padding: 15px;
+    border-radius: 12px;
+    box-shadow: 0 4px 20px rgba(0,0,0,0.15);
+    z-index: 1000;
+    overflow-y: auto;
+}
+
+.gps-panel-header {
+    text-align: center;
+    margin-bottom: 15px;
+    padding-bottom: 10px;
+    border-bottom: 1px solid #eee;
+}
+
+.gps-panel-header h2 {
+    margin: 0 0 10px 0;
+    font-size: 18px;
+    color: #333;
+}
+
+#gps-buscador {
+    width: 100%;
+    padding: 8px 12px;
+    border: 1px solid #ddd;
+    border-radius: 6px;
+    font-size: 14px;
+}
+
+#gps-buscador:focus {
+    outline: none;
+    border-color: #3b9ddd;
+}
+
+#gps-lista-usuarios h3,
+#gps-geocercas-panel h3 {
+    margin: 10px 0;
+    font-size: 14px;
+    color: #666;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.gps-usuario {
+    background: #f8f9fa;
+    border-radius: 8px;
+    padding: 12px;
+    margin-bottom: 8px;
+    cursor: pointer;
+    transition: all 0.2s;
+    border: 2px solid transparent;
+}
+
+.gps-usuario:hover {
+    background: #e9ecef;
+}
+
+.gps-usuario.activo {
+    border-color: #3b9ddd;
+    background: #e7f5ff;
+}
+
+.gps-usuario-header {
+    margin-bottom: 4px;
+}
+
+.gps-usuario small {
+    color: #888;
+    font-size: 11px;
+}
+
+.gps-coordenadas {
+    font-size: 12px;
+    color: #666;
+    margin: 5px 0;
+}
+
+.gps-sin-datos {
+    text-align: center;
+    padding: 20px;
+    color: #888;
+    font-size: 14px;
+}
+
+#gps-geocercas-panel {
+    margin-top: 15px;
+    padding-top: 15px;
+    border-top: 1px solid #eee;
+}
+
+#gps-info-geocerca {
+    background: #f1f3f5;
+    border-radius: 6px;
+    padding: 10px;
+    margin-bottom: 10px;
+    font-size: 13px;
+    color: #495057;
+    min-height: 50px;
+}
+
+#gps-info-geocerca p {
+    margin: 0;
+}
+
+.gps-botones-geocerca {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+}
+
+.gps-botones-geocerca button {
+    padding: 10px 12px;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 13px;
+    font-weight: 500;
+    transition: all 0.2s;
+}
+
+.gps-botones-geocerca button:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+#gps-btn-crear {
+    background: #e7f5ff;
+    color: #1971c2;
+}
+
+#gps-btn-crear:hover:not(:disabled) {
+    background: #d0ebff;
+}
+
+#gps-btn-guardar {
+    background: #ebfbee;
+    color: #2f9e44;
+}
+
+#gps-btn-guardar:hover:not(:disabled) {
+    background: #d3f9d8;
+}
+
+#gps-btn-editar {
+    background: #fff9db;
+    color: #f08c00;
+}
+
+#gps-btn-editar:hover:not(:disabled) {
+    background: #fff3bf;
+}
+
+#gps-btn-eliminar {
+    background: #fff5f5;
+    color: #e03131;
+}
+
+#gps-btn-eliminar:hover:not(:disabled) {
+    background: #ffc9c9;
+}
+
+/* Marcador personalizado Mapbox */
+.gps-marker-marker {
+    width: 20px;
+    height: 20px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    cursor: pointer;
+}
+
+/* Notificaciones */
+.gps-notificacion {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 12px 24px;
+    border-radius: 8px;
+    font-size: 14px;
+    font-weight: 500;
+    z-index: 9999;
+    animation: gps-slideUp 0.3s ease;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+}
+
+@keyframes gps-slideUp {
+    from { opacity: 0; transform: translateX(-50%) translateY(20px); }
+    to   { opacity: 1; transform: translateX(-50%) translateY(0); }
+}
+
+.gps-notificacion.oculto {
+    display: none;
+}
+
+.gps-notificacion.info {
+    background: #3b9ddd;
+    color: white;
+}
+
+.gps-notificacion.exito {
+    background: #2f9e44;
+    color: white;
+}
+
+.gps-notificacion.error {
+    background: #e03131;
+    color: white;
+}
+
+.mapboxgl-ctrl-group {
+    margin-top: 10px !important;
+}
+
+.mapboxgl-ctrl-group button {
+    width: 30px !important;
+    height: 30px !important;
+}
+
+@media (max-width: 768px) {
+    #gps-panel {
+        width: 220px;
+        font-size: 13px;
+    }
+    .gps-panel-header h2 {
+        font-size: 15px;
+    }
+}
+
+/* Split layout farmacias: tabla + mapa */
+.farmacias-split {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    min-height: 520px;
+}
+
+.farmacias-split .split-left {
+    min-width: 0;
+}
+
+.farmacias-split .split-right {
+    min-width: 0;
+}
+
+.farmacias-split .split-right .card {
+    display: flex;
+    flex-direction: column;
+}
+
+.farmacias-split .card-body {
+    overflow: visible;
+}
+
+#mapa-farmacias-global {
+    border-radius: 0 0 var(--radius) var(--radius);
+}
+
+@media (max-width: 1200px) {
+    .farmacias-split {
+        grid-template-columns: 1fr;
+    }
+    #mapa-farmacias-global {
+        min-height: 350px;
+    }
+}

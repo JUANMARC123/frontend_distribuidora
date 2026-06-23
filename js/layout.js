@@ -53,6 +53,7 @@ async function loadSidebar() {
         { icon: 'fa-route', label: 'Rutas', page: currentDir + 'pages/rutas.html', moduleKey: 'Rutas' },
         { icon: 'fa-map-marked-alt', label: 'Control Rutas', page: currentDir + 'pages/controles-ruta.html', moduleKey: 'Control Rutas' },
         { icon: 'fa-clipboard-check', label: 'Despachos', page: currentDir + 'pages/despachos.html', moduleKey: 'Despachos' },
+        { icon: 'fa-satellite', label: 'GPS', page: currentDir + 'pages/gps.html', moduleKey: 'Repartidores' },
         { section: 'Inventario' },
         { icon: 'fa-capsules', label: 'Productos', page: currentDir + 'pages/productos.html', moduleKey: 'Productos' },
         { icon: 'fa-warehouse', label: 'Inventario', page: currentDir + 'pages/inventario.html', moduleKey: 'Inventario' },
