@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Logística - Pw3c Distribuidora</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
+    <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
+    <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
+    <link rel="stylesheet" href="../css/style.css">
+    <link rel="stylesheet" href="../css/logistica.css">
+</head>
+<body>
+    <div id="sidebar-overlay" class="sidebar-overlay"></div>
+    <aside id="sidebar"></aside>
+    <div id="main-content">
+        <header id="header">
+            <button class="btn-toggle-sidebar" id="btn-toggle-sidebar"><i class="fas fa-bars"></i></button>
+            <div class="page-title">Logística <span>/ Centro de Operaciones</span></div>
+        </header>
+        <div class="content" id="page-content">
+            <div class="logistica-tabs">
+                <button class="logistica-tab active" data-tab="planificador" onclick="switchTab('planificador')">
+                    <i class="fas fa-drag-drop"></i> Planificar
+                </button>
+                <button class="logistica-tab" data-tab="tracking" onclick="switchTab('tracking')">
+                    <i class="fas fa-map-marked-alt"></i> Rutas Activas
+                </button>
+                <button class="logistica-tab" data-tab="admin" onclick="switchTab('admin')">
+                    <i class="fas fa-cogs"></i> Administración
+                </button>
+            </div>
+            <div id="logistica-content"></div>
+        </div>
+    </div>
+    <script src="../js/error-handler.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jquery/3.7.1/jquery.min.js"></script>
+    <script src="https://cdn.datatables.net/1.13.6/js/jquery.dataTables.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sweetalert2@11"></script>
+    <script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+    <script src="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+    <script src="../js/config.js"></script>
+    <script src="../js/auth.js"></script>
+    <script src="../js/layout.js"></script>
+    <script src="../js/modules/logistica.js"></script>
+    <script src="../js/modules/planificador.js"></script>
+    <script src="../js/modules/tracking.js"></script>
+</body>
+</html>
