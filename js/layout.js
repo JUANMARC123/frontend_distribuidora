@@ -6,76 +6,65 @@ document.addEventListener('DOMContentLoaded', async function () {
     }
 });
 
-const MODULE_KEYS = {
-    'Dashboard': 'Dashboard',
-    'Reportes': 'Reportes',
-    'Usuarios': 'Usuarios',
-    'Roles': 'Roles',
-    'Farmacias': 'Farmacias',
-    'Pedidos': 'Pedidos',
-    'Repartidores': 'Repartidores',
-    'Vehículos': 'Vehículos',
-    'Rutas': 'Rutas',
-    'Control Rutas': 'Control Rutas',
-    'Despachos': 'Despachos',
-};
-
 async function loadSidebar() {
     const user = getUser();
     const initials = getUserInitials();
     const userName = user ? `${user.nombre || ''} ${user.apellido || ''}`.trim() || (user.name || 'Usuario') : 'Usuario';
     const userRole = user?.roles?.length ? user.roles.map(r => r.nombre).join(', ') : 'Usuario';
-
+    const inPages = window.location.pathname.includes('/pages/');
+    const prefix = inPages ? '../' : './';
     const currentPage = window.location.pathname.split('/').pop() || 'dashboard.html';
-    const currentDir = window.location.pathname.includes('/pages/') ? '../' : '';
+    const currentHash = window.location.hash || '';
 
     await loadUserPermissions();
 
-    const allNavItems = [
-        { section: 'Principal' },
-        { icon: 'fa-chart-pie', label: 'Dashboard', page: currentDir + 'dashboard.html', moduleKey: 'Dashboard' },
-        { icon: 'fa-file-pdf', label: 'Documentos', page: currentDir + 'pages/documentos.html', moduleKey: 'Documentos' },
-        { icon: 'fa-file-alt', label: 'Reportes', page: currentDir + 'pages/reportes.html', moduleKey: 'Reportes' },
-        { section: 'Gestión' },
-        { icon: 'fa-users', label: 'Usuarios', page: currentDir + 'pages/usuarios.html', moduleKey: 'Usuarios' },
-        { icon: 'fa-user-tag', label: 'Roles', page: currentDir + 'pages/roles.html', moduleKey: 'Roles' },
-        { icon: 'fa-list', label: 'Catálogos', page: currentDir + 'pages/catalogos.html', moduleKey: 'Usuarios' },
-        { icon: 'fa-hospital', label: 'Farmacias', page: currentDir + 'pages/farmacias.html', moduleKey: 'Farmacias' },
-        { icon: 'fa-cube', label: 'Productos', page: currentDir + 'pages/productos.html', moduleKey: 'Productos' },
-        { icon: 'fa-box', label: 'Pedidos', page: currentDir + 'pages/pedidos.html', moduleKey: 'Pedidos' },
-        { section: 'Logística' },
-        { icon: 'fa-tachometer-alt', label: 'Centro Logístico', page: currentDir + 'pages/logistica.html', moduleKey: 'Logística' },
-        { icon: 'fa-truck', label: 'Repartidores', page: currentDir + 'pages/repartidores.html', moduleKey: 'Repartidores' },
-        { icon: 'fa-car', label: 'Vehículos', page: currentDir + 'pages/vehiculos.html', moduleKey: 'Vehículos' },
-        { icon: 'fa-route', label: 'Rutas', page: currentDir + 'pages/rutas.html', moduleKey: 'Rutas' },
-        { icon: 'fa-map-marked-alt', label: 'Control Rutas', page: currentDir + 'pages/controles-ruta.html', moduleKey: 'Control Rutas' },
-        { icon: 'fa-clipboard-check', label: 'Despachos', page: currentDir + 'pages/despachos.html', moduleKey: 'Despachos' },
-        { icon: 'fa-satellite', label: 'GPS', page: currentDir + 'pages/gps.html', moduleKey: 'Repartidores' },
-        { section: 'Financiero' },
-        { icon: 'fa-money-bill-wave', label: 'Caja Diaria', page: currentDir + 'pages/caja.html', moduleKey: 'Caja Diaria' },
+    const navItems = [
+        { section: 'Inicio' },
+        { icon: 'fa-house', label: 'Inicio', page: `${prefix}dashboard.html`, moduleKey: 'Dashboard' },
+        { section: 'Operaciones' },
+        { icon: 'fa-hospital', label: 'Farmacias', page: `${prefix}pages/farmacias.html`, moduleKey: 'Farmacias' },
+        { icon: 'fa-box', label: 'Pedidos', page: `${prefix}pages/pedidos.html`, moduleKey: 'Pedidos' },
+        { section: 'Centro Logistico' },
+        { icon: 'fa-route', label: 'Crear entrega', page: `${prefix}pages/logistica.html#planificacion`, moduleKey: 'Logistica' },
+        { icon: 'fa-location-dot', label: 'Seguimiento', page: `${prefix}pages/logistica.html#seguimiento`, moduleKey: 'Logistica' },
+        { icon: 'fa-clock-rotate-left', label: 'Historial', page: `${prefix}pages/logistica.html#historial`, moduleKey: 'Logistica' },
+        { icon: 'fa-map', label: 'Mapa', page: `${prefix}pages/logistica.html#mapa`, moduleKey: 'Logistica' },
+        { section: 'Recursos' },
+        { icon: 'fa-truck', label: 'Repartidores', page: `${prefix}pages/repartidores.html`, moduleKey: 'Repartidores' },
+        { icon: 'fa-car', label: 'Vehiculos', page: `${prefix}pages/vehiculos.html`, moduleKey: 'Vehiculos' },
+        { icon: 'fa-road', label: 'Rutas', page: `${prefix}pages/rutas.html`, moduleKey: 'Rutas' },
+        { section: 'Caja' },
+        { icon: 'fa-cash-register', label: 'Caja', page: `${prefix}pages/caja.html`, moduleKey: 'Caja Diaria' },
+        { section: 'Reportes' },
+        { icon: 'fa-chart-line', label: 'Reportes', page: `${prefix}pages/reportes.html`, moduleKey: 'Reportes' },
+        { section: 'Administracion' },
+        { icon: 'fa-cube', label: 'Productos', page: `${prefix}pages/productos.html`, moduleKey: 'Productos' },
+        { icon: 'fa-users', label: 'Usuarios', page: `${prefix}pages/usuarios.html`, moduleKey: 'Usuarios' },
+        { icon: 'fa-user-tag', label: 'Roles', page: `${prefix}pages/roles.html`, moduleKey: 'Roles' },
+        { icon: 'fa-list', label: 'Catalogos', page: `${prefix}pages/catalogos.html`, moduleKey: 'Catalogos' },
+        { icon: 'fa-file-pdf', label: 'Documentos', page: `${prefix}pages/documentos.html`, moduleKey: 'Documentos' },
     ];
 
-    const navItems = allNavItems.filter(item => {
-        if (item.section) return true;
-        if (!item.moduleKey) return true;
-        return hasPermission(item.moduleKey, 'acceder');
-    });
+    const visibleItems = navItems.filter(item => item.section || !item.moduleKey || hasPermission(item.moduleKey, 'acceder'));
 
     let navHtml = '';
-    let lastWasSection = false;
-    navItems.forEach(item => {
+    visibleItems.forEach((item, idx) => {
         if (item.section) {
-            navHtml += `<div class="nav-section">${item.section}</div>`;
-            lastWasSection = true;
-        } else {
-            const pageFile = item.page.split('/').pop();
-            const active = currentPage === pageFile ? ' active' : '';
-            navHtml += `<a href="${item.page}" class="nav-item${active}">
-                <i class="fas ${item.icon}"></i>
-                <span>${item.label}</span>
-            </a>`;
-            lastWasSection = false;
+            const nextSectionIdx = visibleItems.findIndex((next, nextIdx) => nextIdx > idx && next.section);
+            const sectionEnd = nextSectionIdx === -1 ? visibleItems.length : nextSectionIdx;
+            const hasNextLink = visibleItems.slice(idx + 1, sectionEnd).some(next => !next.section);
+            if (hasNextLink) navHtml += `<div class="nav-section">${item.section}</div>`;
+            return;
         }
+
+        const itemUrl = new URL(item.page, window.location.origin + window.location.pathname);
+        const itemFile = itemUrl.pathname.split('/').pop();
+        const itemHash = itemUrl.hash || '';
+        const active = currentPage === itemFile && (!itemHash || currentHash === itemHash) ? ' active' : '';
+        navHtml += `<a href="${item.page}" class="nav-item${active}">
+            <i class="fas ${item.icon}"></i>
+            <span>${item.label}</span>
+        </a>`;
     });
 
     const sidebar = document.getElementById('sidebar');
@@ -86,7 +75,7 @@ async function loadSidebar() {
             <div class="logo"><i class="fas fa-pills"></i></div>
             <div>
                 <h2>Pw3c Distribuidora</h2>
-                <small>Sistema de Gestión</small>
+                <small>Sistema operativo</small>
             </div>
         </div>
         <div class="sidebar-user">
@@ -100,7 +89,7 @@ async function loadSidebar() {
         <div class="sidebar-footer">
             <button class="btn-logout" onclick="logout()">
                 <i class="fas fa-sign-out-alt"></i>
-                Cerrar Sesión
+                Cerrar sesion
             </button>
         </div>
     `;

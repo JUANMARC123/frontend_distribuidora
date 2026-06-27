@@ -3,6 +3,26 @@ var gpsMarcadores = {};
 var gpsUsuarioSeleccionado = null;
 var gpsRepartidoresApi = [];
 
+function gpsEstaConectado(firebaseUser) {
+    if (!firebaseUser?.ubicacion) return false;
+    if (firebaseUser.ubicacion.latitud == null) return false;
+
+    var horaStr = firebaseUser.ubicacion.hora;
+    if (!horaStr) return true;
+
+    var partes = horaStr.split(':');
+    if (partes.length !== 3) return true;
+
+    var ahora = new Date();
+    var fechaUbicacion = new Date();
+    fechaUbicacion.setHours(parseInt(partes[0]), parseInt(partes[1]), parseInt(partes[2]), 0);
+
+    var diffMs = ahora - fechaUbicacion;
+    if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+
+    return Math.floor(diffMs / 60000) < 2;
+}
+
 const GPS_MAPBOX_TOKEN = window.GPS_MAPBOX_TOKEN || null;
 const GPS_FIREBASE_CONFIG = {
     apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
@@ -101,7 +121,7 @@ function initMapbox() {
 }
 
 function initFirebase() {
-    firebase.initializeApp(GPS_FIREBASE_CONFIG);
+    if (!firebase.apps.length) firebase.initializeApp(GPS_FIREBASE_CONFIG);
     var db = firebase.database();
     var usuariosRef = db.ref('usuarios');
     usuariosRef.on('value', function (snapshot) {
@@ -168,7 +188,7 @@ function gpsActualizarMarcadores(usuarios) {
         } else {
             var el = document.createElement('div');
             el.className = 'gps-marker-marker';
-            el.style.backgroundColor = data.estado === 'activo' ? '#10b981' : '#94a3b8';
+            el.style.backgroundColor = gpsEstaConectado(data) ? '#10b981' : '#94a3b8';
             var popupHtml = '<b>' + ((data.info && data.info.nombre) ? data.info.nombre : id) + '</b>';
             var match = gpsEncontrarRepartidor(data.info && data.info.nombre ? data.info.nombre : '', id);
             if (match) {
@@ -209,7 +229,7 @@ function gpsMostrarUsuarios(usuarios, onClick) {
         var lat = (data.ubicacion && data.ubicacion.latitud) ? data.ubicacion.latitud : '-';
         var lng = (data.ubicacion && data.ubicacion.longitud) ? data.ubicacion.longitud : '-';
         var nombre = (data.info && data.info.nombre) ? data.info.nombre : id;
-        var estado = data.estado === 'activo' ? '🟢' : '🔴';
+        var estado = gpsEstaConectado(data) ? '🟢' : '🔴';
         var match = gpsEncontrarRepartidor(data.info && data.info.nombre ? data.info.nombre : '', id);
         var extra = '';
         if (match) {
@@ -270,6 +290,7 @@ function gpsGuardarGeocercasDraw(usuarioId) {
 
 function gpsCargarGeocercas(userId) {
     if (!userId) return;
+    if (!gpsDraw) return;
     gpsDraw.deleteAll();
     gpsDraw.changeMode('simple_select');
     var db = firebase.database();

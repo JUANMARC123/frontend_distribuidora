@@ -67,9 +67,9 @@ async function loadTable() {
                 { data: 'nombre_ruta' },
                 { data: null, render: r => r.paradas_count ?? r.paradas?.length ?? 0 },
                 { data: null, render: r => `<div class="actions">
-                    ${hasPermission('Rutas', 'gestionar-paradas') ? `<button class="btn btn-sm btn-info" onclick="openParadasModal(${r.id_ruta},'${r.nombre_ruta}')"><i class="fas fa-map-pin"></i></button>` : ''}
+                    ${hasPermission('Rutas', 'gestionar-paradas') ? `<button class="btn btn-sm btn-info" onclick="openParadasModal(${r.id_ruta},'${(r.nombre_ruta || '').replace(/'/g, "\\'")}')"><i class="fas fa-map-pin"></i></button>` : ''}
                     ${hasPermission('Rutas', 'editar') ? `<button class="btn btn-sm btn-warning" onclick="edit(${r.id_ruta})"><i class="fas fa-edit"></i></button>` : ''}
-                    ${hasPermission('Rutas', 'eliminar') ? `<button class="btn btn-sm btn-danger" onclick="del(${r.id_ruta},'${r.nombre_ruta}')"><i class="fas fa-trash"></i></button>` : ''}
+                    ${hasPermission('Rutas', 'eliminar') ? `<button class="btn btn-sm btn-danger" onclick="del(${r.id_ruta},'${(r.nombre_ruta || '').replace(/'/g, "\\'")}')"><i class="fas fa-trash"></i></button>` : ''}
                 </div>`, orderable: false }
             ]
         });

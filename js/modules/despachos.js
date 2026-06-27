@@ -155,6 +155,9 @@ async function save() {
         fecha_hora_despacho: document.getElementById('f-fecha').value || null,
     };
     if (!body.id_pedido) return Swal.fire('Validación', 'Seleccione un pedido', 'warning');
+    if (!body.id_parada) return Swal.fire('Validación', 'Seleccione una parada', 'warning');
+    if (!body.id_control_ruta) return Swal.fire('Validación', 'Seleccione un control de ruta', 'warning');
+    if (!body.id_estado_despacho) return Swal.fire('Validación', 'Seleccione un estado', 'warning');
     try {
         if (editingId) { await apiFetch(`/despachos/${editingId}`, { method: 'PUT', body }); Swal.fire('Actualizado', 'Despacho actualizado', 'success'); }
         else { await apiFetch('/despachos', { method: 'POST', body }); Swal.fire('Creado', 'Despacho creado', 'success'); }

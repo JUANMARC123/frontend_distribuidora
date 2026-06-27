@@ -103,14 +103,21 @@ function getStatusBadge(status) {
         'bloqueado': 'badge-danger',
         'pendiente': 'badge-warning',
         'aprobado': 'badge-primary',
+        'preparacion': 'badge-primary',
+        'preparación': 'badge-primary',
         'despachado': 'badge-info',
         'entregado': 'badge-success',
+        'entrega parcial': 'badge-warning',
         'en ruta': 'badge-info',
+        'fallido': 'badge-danger',
         'cancelado': 'badge-danger',
         'operativo': 'badge-success',
         'mantenimiento': 'badge-warning',
         'disponible': 'badge-success',
         'ocupado': 'badge-warning',
+        'abierta': 'badge-success',
+        'cerrada': 'badge-secondary',
+        'revisada': 'badge-info',
     };
     const cls = map[status?.toLowerCase()] || 'badge-secondary';
     return `<span class="badge ${cls}">${status}</span>`;
@@ -118,7 +125,9 @@ function getStatusBadge(status) {
 
 function formatDate(dateStr) {
     if (!dateStr) return '—';
+    if (/^\d{2}:\d{2}:\d{2}$/.test(dateStr)) return dateStr;
     const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return dateStr;
     return d.toLocaleDateString('es-BO', {
         year: 'numeric', month: '2-digit', day: '2-digit',
         hour: '2-digit', minute: '2-digit',
@@ -175,7 +184,26 @@ async function loadUserPermissions() {
 }
 
 function hasPermission(modulo, accion) {
-    return userPermissions.some(p => p.modulo === modulo && p.accion === accion);
+    const aliasMap = {
+        logistica: ['Logistica', 'Logística', 'LogÃ­stica', 'LogÃƒÂ­stica'],
+        vehiculos: ['Vehiculos', 'Vehículos', 'VehÃ­culos', 'VehÃƒÂ­culos'],
+        catalogos: ['Catalogos', 'Catálogos', 'CatÃ¡logos', 'CatÃƒÂ¡logos'],
+        caja_diaria: ['Caja Diaria', 'Caja diaria', 'Caja'],
+        control_rutas: ['Control Rutas', 'Controles Ruta', 'Control de Rutas'],
+    };
+    const key = normalizePermissionKey(modulo);
+    const candidates = [modulo, ...(aliasMap[key] || [])].map(normalizePermissionKey);
+    return userPermissions.some(p => candidates.includes(normalizePermissionKey(p.modulo)) && p.accion === accion);
+}
+
+function normalizePermissionKey(value) {
+    const raw = String(value || '').trim().toLowerCase();
+    const mapped = raw
+        .replace(/log.+stica/g, 'logistica')
+        .replace(/veh.+culos/g, 'vehiculos')
+        .replace(/cat.+logos/g, 'catalogos')
+        .replace(/\s+/g, '_');
+    return mapped.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
 function getModulePermissions(modulo) {
@@ -231,6 +259,10 @@ function getAuthHeaders() {
         headers['Authorization'] = `Bearer ${token}`;
     }
     return headers;
+}
+
+function getToken() {
+    return localStorage.getItem('token');
 }
 
 function openModal(id) {

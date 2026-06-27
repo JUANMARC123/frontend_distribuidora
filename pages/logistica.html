@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Logística - Pw3c Distribuidora</title>
+    <title>Centro Logistico - Pw3c Distribuidora</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css">
     <link rel="stylesheet" href="https://cdn.datatables.net/1.13.6/css/jquery.dataTables.min.css">
     <link href="https://api.mapbox.com/mapbox-gl-js/v3.2.0/mapbox-gl.css" rel="stylesheet">
@@ -16,18 +16,21 @@
     <div id="main-content">
         <header id="header">
             <button class="btn-toggle-sidebar" id="btn-toggle-sidebar"><i class="fas fa-bars"></i></button>
-            <div class="page-title">Logística <span>/ Centro de Operaciones</span></div>
+            <div class="page-title">Centro Logistico <span>/ Operaciones de entrega</span></div>
         </header>
         <div class="content" id="page-content">
             <div class="logistica-tabs">
-                <button class="logistica-tab active" data-tab="planificador" onclick="switchTab('planificador')">
-                    <i class="fas fa-drag-drop"></i> Planificar
+                <button class="logistica-tab active" data-tab="planificacion" onclick="switchTab('planificacion')">
+                    <i class="fas fa-hand-pointer"></i> Crear entrega
                 </button>
-                <button class="logistica-tab" data-tab="tracking" onclick="switchTab('tracking')">
-                    <i class="fas fa-map-marked-alt"></i> Rutas Activas
+                <button class="logistica-tab" data-tab="seguimiento" onclick="switchTab('seguimiento')">
+                    <i class="fas fa-location-dot"></i> Seguimiento
                 </button>
-                <button class="logistica-tab" data-tab="admin" onclick="switchTab('admin')">
-                    <i class="fas fa-cogs"></i> Administración
+                <button class="logistica-tab" data-tab="historial" onclick="switchTab('historial')">
+                    <i class="fas fa-clock-rotate-left"></i> Historial
+                </button>
+                <button class="logistica-tab" data-tab="mapa" onclick="switchTab('mapa')">
+                    <i class="fas fa-map"></i> Mapa
                 </button>
             </div>
             <div id="logistica-content"></div>

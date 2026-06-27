@@ -1,7 +1,27 @@
 let repartidoresTable, editingId = null;
-let usuariosDisponibles = [], estadosRep = [], extensiones = [], licencias = [];
+let usuariosDisponibles = [], estadosRep = [], extensiones = [], licencias = [], vehiculosList = [];
 let firebaseUsuarios = {};
 let firebaseAppInited = false;
+
+function estaConectado(firebaseUser) {
+    if (!firebaseUser?.ubicacion) return false;
+    if (firebaseUser.ubicacion.latitud == null) return false;
+
+    var horaStr = firebaseUser.ubicacion.hora;
+    if (!horaStr) return true;
+
+    var partes = horaStr.split(':');
+    if (partes.length !== 3) return true;
+
+    var ahora = new Date();
+    var fechaUbicacion = new Date();
+    fechaUbicacion.setHours(parseInt(partes[0]), parseInt(partes[1]), parseInt(partes[2]), 0);
+
+    var diffMs = ahora - fechaUbicacion;
+    if (diffMs < 0) diffMs += 24 * 60 * 60 * 1000;
+
+    return Math.floor(diffMs / 60000) < 2;
+}
 
 const REPARTIDORES_FIREBASE_CONFIG = {
     apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
@@ -27,11 +47,12 @@ async function loadCatalogos() {
     try { const d = await apiFetch('/catalogos/estados-repartidor'); estadosRep = Array.isArray(d) ? d : (d.data || []); } catch (e) { estadosRep = [{ id_estado_repartidor: 1, nombre_estado: 'Disponible' }, { id_estado_repartidor: 2, nombre_estado: 'Ocupado' }, { id_estado_repartidor: 3, nombre_estado: 'Inactivo' }]; }
     try { const d = await apiFetch('/catalogos/extensiones-ci'); extensiones = Array.isArray(d) ? d : (d.data || []); } catch (e) { extensiones = [{ id_extension_ci: 1, nombre_extension: 'LP' }, { id_extension_ci: 2, nombre_extension: 'SC' }, { id_extension_ci: 3, nombre_extension: 'CB' }]; }
     try { const d = await apiFetch('/catalogos/licencias'); licencias = Array.isArray(d) ? d : (d.data || []); } catch (e) { licencias = [{ id_licencia: 1, categoria: 'A' }, { id_licencia: 2, categoria: 'B' }, { id_licencia: 3, categoria: 'C' }]; }
+    try { const d = await apiFetch('/vehiculos?per_page=-1'); vehiculosList = Array.isArray(d) ? d : (d.data || []); } catch (e) { vehiculosList = []; }
 }
 
 function initFirebaseRepartidores() {
     try {
-        firebase.initializeApp(REPARTIDORES_FIREBASE_CONFIG);
+        if (!firebase.apps.length) firebase.initializeApp(REPARTIDORES_FIREBASE_CONFIG);
         firebaseAppInited = true;
         var db = firebase.database();
         var usuariosRef = db.ref('usuarios');
@@ -39,11 +60,20 @@ function initFirebaseRepartidores() {
             var data = snapshot.val();
             firebaseUsuarios = data || {};
             actualizarSelectFirebase();
-            if (repartidoresTable) repartidoresTable.ajax.reload(null, false);
+            refreshFirebaseColumn();
         });
     } catch (e) {
         console.warn('Firebase init warning:', e);
     }
+}
+
+function refreshFirebaseColumn() {
+    if (!document.getElementById('main-table')) return;
+    if (!repartidoresTable) {
+        setTimeout(refreshFirebaseColumn, 200);
+        return;
+    }
+    repartidoresTable.rows().invalidate().draw(false);
 }
 
 function actualizarSelectFirebase() {
@@ -54,7 +84,7 @@ function actualizarSelectFirebase() {
     Object.keys(firebaseUsuarios).forEach(function (id) {
         var u = firebaseUsuarios[id];
         var nombre = (u.info && u.info.nombre) ? u.info.nombre : id;
-        var estado = u.estado === 'activo' ? '🟢' : '🔴';
+        var estado = estaConectado(u) ? '🟢' : '🔴';
         var opt = document.createElement('option');
         opt.value = id;
         opt.textContent = estado + ' ' + nombre + ' (' + id.substring(0, 8) + '...)';
@@ -72,7 +102,7 @@ function renderPage() {
             </div>
             <div class="card-body">
                 <div class="table-container"><table id="main-table" class="display" style="width:100%"><thead><tr>
-                    <th>Nombre</th><th>CI</th><th>Licencia</th><th>Estado</th><th>Firebase</th><th>Acciones</th>
+                    <th>Nombre</th><th>CI</th><th>Licencia</th><th>Estado</th><th>Vehiculo</th><th>Firebase</th><th>Acciones</th>
                 </tr></thead></table></div>
             </div>
         </div>
@@ -90,6 +120,7 @@ function renderPage() {
                         <div class="form-group"><label>Estado</label><select id="f-estado" class="form-control">${estadosRep.map(e => `<option value="${e.id_estado_repartidor}">${e.nombre_estado}</option>`).join('')}</select></div>
                     </div>
                     <div class="form-group"><label>Vincular usuario de Firebase</label><select id="f-firebase-uid" class="form-control"><option value="">— No vincular —</option></select></div>
+                    <div class="form-group"><label>Vehiculo asignado</label><select id="f-vehiculo" class="form-control"><option value="">Sin vehiculo asignado</option>${vehiculosList.map(v => `<option value="${v.id_vehiculo}">${v.placa} - ${v.modelo?.marca?.nombre_marca || ''} ${v.modelo?.nombre_modelo || ''}</option>`).join('')}</select></div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="save()">Guardar</button></div>
@@ -120,10 +151,15 @@ async function loadTable() {
                 { data: null, render: r => r.licencia?.categoria || r.categoria_licencia || '—' },
                 { data: null, render: r => getStatusBadge(r.estado?.nombre_estado || r.nombre_estado || '—') },
                 { data: null, render: r => {
+                    const asignacion = r.asignacion_vehiculo_activa || r.asignacionVehiculoActiva || null;
+                    const v = asignacion?.vehiculo || r.vehiculo || null;
+                    return v ? `${v.placa || ''} ${v.modelo?.nombre_modelo || ''}`.trim() : '<span class="text-muted">Sin vehiculo</span>';
+                } },
+                { data: null, render: r => {
                     var fb = r.firebase_uid;
                     if (!fb) return '<span class="badge badge-secondary" style="background:#64748b">Sin vincular</span>';
                     var fbUser = firebaseUsuarios[fb];
-                    if (fbUser && fbUser.estado === 'activo') return '<span class="badge badge-success" style="background:#10b981">🟢 Conectado</span>';
+                    if (estaConectado(fbUser)) return '<span class="badge badge-success" style="background:#10b981">🟢 Conectado</span>';
                     return '<span class="badge badge-warning" style="background:#f59e0b">🔴 Desconectado</span>';
                 } },
                 { data: null, render: r => `<div class="actions">
@@ -133,6 +169,7 @@ async function loadTable() {
                 </div>`, orderable: false }
             ]
         });
+        if (Object.keys(firebaseUsuarios).length > 0) refreshFirebaseColumn();
     } catch (e) { Swal.fire('Error', 'Error al cargar repartidores: ' + e.message, 'error'); }
 }
 
@@ -154,6 +191,8 @@ async function edit(id) {
         document.getElementById('f-licencia').value = r.id_licencia || '';
         document.getElementById('f-estado').value = r.id_estado_repartidor || '';
         document.getElementById('f-firebase-uid').value = r.firebase_uid || '';
+        const asignacion = r.asignacion_vehiculo_activa || r.asignacionVehiculoActiva || null;
+        document.getElementById('f-vehiculo').value = asignacion?.id_vehiculo || asignacion?.vehiculo?.id_vehiculo || '';
         document.getElementById('main-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar el repartidor', 'error'); }
 }
@@ -166,6 +205,7 @@ async function save() {
         id_licencia: parseInt(document.getElementById('f-licencia').value) || null,
         id_estado_repartidor: parseInt(document.getElementById('f-estado').value),
         firebase_uid: document.getElementById('f-firebase-uid').value || null,
+        id_vehiculo: parseInt(document.getElementById('f-vehiculo').value) || null,
     };
     if (!body.id_usuario || !body.ci) return Swal.fire('Validación', 'Usuario y CI son obligatorios', 'warning');
     try {
