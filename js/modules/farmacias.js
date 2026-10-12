@@ -9,7 +9,6 @@ let mapaModal = null;
 let markerModal = null;
 let mapaGlobal = null;
 let marcadoresGlobales = [];
-let marcadorResaltadoId = null;
 
 const DEFAULT_CARGOS = [
     { id_cargo: 1, nombre_cargo: 'Gerente' },
@@ -52,7 +51,7 @@ function renderPage() {
                 <p class="ops-subtitle">Busca una farmacia, revisa su actividad de pedidos y crea nuevos pedidos sin cambiar de módulo.</p>
                 <div class="ops-actions">
                     ${hasPermission('Farmacias', 'crear') ? '<button class="btn btn-primary" onclick="openFarmaciaModal()"><i class="fas fa-plus"></i> Nueva farmacia</button>' : ''}
-                    ${hasPermission('Pedidos', 'crear') ? '<a class="btn btn-success" href="pedidos.html"><i class="fas fa-box"></i> Nuevo pedido</a>' : ''}
+                    ${hasPermission('Pedidos', 'crear') ? '<a class="btn btn-success" href="/pages/logistica.html#pedidos"><i class="fas fa-box"></i> Nuevo pedido</a>' : ''}
                 </div>
             </div>
             <div class="ops-panel">
@@ -73,7 +72,6 @@ function renderPage() {
             </div>
         </section>
 
-        <section class="ops-metrics-grid" id="farmacias-metrics"></section>
         <section class="ops-card-grid" id="farmacias-cards">
             <div class="loading"><div class="spinner"></div>Cargando farmacias...</div>
         </section>
@@ -216,7 +214,6 @@ async function reloadFarmaciasView() {
         ]);
         farmaciasData = Array.isArray(farmaciasResp) ? farmaciasResp : (farmaciasResp.data || []);
         pedidosData = Array.isArray(pedidosResp) ? pedidosResp : (pedidosResp.data || []);
-        renderFarmaciaMetrics();
         renderFarmaciaCards();
         actualizarMarcadoresGlobales(farmaciasData);
     } catch (e) {
@@ -243,26 +240,7 @@ function getFarmaciaStats(idFarmacia) {
     };
 }
 
-function normalizeStatus(value) {
-    return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function renderFarmaciaMetrics() {
-    const totalPedidos = pedidosData.length;
-    const pendientes = pedidosData.filter(p => normalizeStatus(p.estado?.nombre_estado || p.nombre_estado).includes('pendiente')).length;
-    const enRuta = pedidosData.filter(p => normalizeStatus(p.estado?.nombre_estado || p.nombre_estado).includes('ruta') || normalizeStatus(p.estado?.nombre_estado || p.nombre_estado).includes('despachado')).length;
-    const deuda = pedidosData
-        .filter(p => !normalizeStatus(p.estado?.nombre_estado || p.nombre_estado).includes('entregado'))
-        .reduce((sum, p) => sum + parseFloat(p.total || 0), 0);
-
-    document.getElementById('farmacias-metrics').innerHTML = `
-        <div class="ops-metric"><div class="label">Farmacias</div><div class="value">${farmaciasData.length}</div><div class="hint">Clientes registrados</div></div>
-        <div class="ops-metric"><div class="label">Pedidos</div><div class="value">${totalPedidos}</div><div class="hint">Historial cargado</div></div>
-        <div class="ops-metric"><div class="label">Pendientes</div><div class="value">${pendientes}</div><div class="hint">Requieren atención</div></div>
-        <div class="ops-metric"><div class="label">En ruta</div><div class="value">${enRuta}</div><div class="hint">En logística</div></div>
-        <div class="ops-metric"><div class="label">Monto activo</div><div class="value">Bs ${deuda.toFixed(2)}</div><div class="hint">No entregado</div></div>
-    `;
-}
+function normalizeStatus(value) { return normalize(value); }
 
 function renderFarmaciaCards() {
     const term = (document.getElementById('farmacias-search')?.value || '').trim().toLowerCase();
@@ -319,7 +297,7 @@ function escapeAttr(value) {
 }
 
 function crearPedidoDesdeFarmacia(idFarmacia) {
-    window.location.href = `pedidos.html?farmacia=${idFarmacia}`;
+    window.location.href = '/pages/logistica.html#pedidos';
 }
 
 function openFarmaciaProfile(idFarmacia) {
@@ -669,22 +647,4 @@ function actualizarMarcadoresGlobales(farmacias) {
     });
     const counter = document.getElementById('mapa-contador');
     if (counter) counter.textContent = `${count} en mapa`;
-}
-
-function highlightMarker(id) {
-    if (marcadorResaltadoId !== null) {
-        const previous = marcadoresGlobales.find(m => m.id === marcadorResaltadoId);
-        if (previous) previous.marker.setStyle({ radius: 7, fillColor: '#3b82f6' });
-    }
-    marcadorResaltadoId = id;
-    const current = marcadoresGlobales.find(m => m.id === id);
-    if (current) current.marker.setStyle({ radius: 11, fillColor: '#f59e0b' });
-}
-
-function centrarEnMapa(id) {
-    const current = marcadoresGlobales.find(m => m.id === id);
-    if (!current || !mapaGlobal) return;
-    mapaGlobal.setView([current.data.latitud, current.data.longitud], 16);
-    current.marker.openPopup();
-    highlightMarker(id);
 }

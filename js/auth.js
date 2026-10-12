@@ -130,26 +130,6 @@ function checkAuth() {
     return true;
 }
 
-async function loadUser() {
-    try {
-        const data = await apiFetch('/auth/user');
-        const userData = data.user || data.data || data;
-        if (typeof userData === 'object' && userData !== null) {
-            localStorage.setItem('user', JSON.stringify(userData));
-            console.log('[Auth] Usuario actualizado desde API');
-        }
-        const permisos = data.permisos || data.data?.permisos || [];
-        if (permisos.length) {
-            localStorage.setItem('permisos', JSON.stringify(permisos));
-            userPermissions = permisos;
-        }
-        return userData;
-    } catch (e) {
-        console.error('[Auth] loadUser error:', e);
-        return null;
-    }
-}
-
 function getUser() {
     try {
         const stored = localStorage.getItem('user');

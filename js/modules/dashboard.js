@@ -25,7 +25,7 @@ function renderInicioSkeleton() {
                 <h1 class="ops-title">Centro de decisiones</h1>
                 <p class="ops-subtitle">Revisa pedidos pendientes, entregas en curso, problemas de entrega y caja del día desde una sola pantalla.</p>
                 <div class="ops-actions">
-                    <a class="btn btn-primary" href="pages/farmacias.html"><i class="fas fa-plus"></i> Crear pedido</a>
+                    <a class="btn btn-primary" href="/pages/logistica.html#pedidos"><i class="fas fa-plus"></i> Crear pedido</a>
                     <a class="btn btn-success" href="pages/logistica.html#planificacion"><i class="fas fa-route"></i> Crear entrega</a>
                     <a class="btn btn-outline" href="pages/caja.html"><i class="fas fa-cash-register"></i> Revisar caja</a>
                 </div>

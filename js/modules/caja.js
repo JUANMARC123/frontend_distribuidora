@@ -426,38 +426,10 @@ function getCajaEstado(c) {
     return c?.estado?.nombre_estado || c?.nombre_estado || c?.estado || 'Abierta';
 }
 
-function getRepartidorId(r) {
-    return parseInt(r?.id_repartidor || r?.repartidor_id || r?.id || 0);
-}
-
-function getRepartidorName(r) {
-    const userName = `${r?.usuario?.nombre || ''} ${r?.usuario?.apellido || ''}`.trim();
-    return r?.nombre || userName || r?.nombre_completo || 'Sin repartidor';
-}
-
 function sumCajas(field) {
     return cajasDia.reduce((s, c) => s + parseMoney(c[field]), 0);
 }
 
-function parseMoney(value) {
-    const n = parseFloat(value);
-    return Number.isFinite(n) ? n : 0;
-}
+function normalizeCaja(value) { return normalize(value); }
 
-function money(value) {
-    return parseMoney(value).toFixed(2);
-}
-
-function normalizeCaja(value) {
-    return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
-}
-
-function cajaSafe(value) {
-    return String(value ?? '').replace(/[&<>"']/g, c => ({
-        '&': '&amp;',
-        '<': '&lt;',
-        '>': '&gt;',
-        '"': '&quot;',
-        "'": '&#039;'
-    }[c]));
-}
+function cajaSafe(value) { return escapeHtml(value); }

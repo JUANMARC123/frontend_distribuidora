@@ -185,7 +185,7 @@ async function loadUserPermissions() {
 
 function hasPermission(modulo, accion) {
     const aliasMap = {
-        logistica: ['Logistica', 'Logística', 'LogÃ­stica', 'LogÃƒÂ­stica'],
+        logistica: ['Logistica', 'Logística', 'LogÃ­stica', 'LogÃƒÂ­stica', 'Despachos'],
         vehiculos: ['Vehiculos', 'Vehículos', 'VehÃ­culos', 'VehÃƒÂ­culos'],
         catalogos: ['Catalogos', 'Catálogos', 'CatÃ¡logos', 'CatÃƒÂ¡logos'],
         caja_diaria: ['Caja Diaria', 'Caja diaria', 'Caja'],
@@ -193,7 +193,13 @@ function hasPermission(modulo, accion) {
     };
     const key = normalizePermissionKey(modulo);
     const candidates = [modulo, ...(aliasMap[key] || [])].map(normalizePermissionKey);
-    return userPermissions.some(p => candidates.includes(normalizePermissionKey(p.modulo)) && p.accion === accion);
+    return userPermissions.some(p => {
+        const permModulo = typeof p === 'object' ? p.modulo : (typeof p === 'string' ? p.split('-')[0] : p);
+        const permAccion = typeof p === 'object' ? p.accion : (p.split('-')[1] || '');
+        const normalizedModulo = normalizePermissionKey(permModulo);
+        const normalizedAccion = normalizeAccion(permAccion);
+        return candidates.includes(normalizedModulo) && normalizedAccion === accion;
+    });
 }
 
 function normalizePermissionKey(value) {
@@ -206,12 +212,9 @@ function normalizePermissionKey(value) {
     return mapped.normalize('NFD').replace(/[\u0300-\u036f]/g, '');
 }
 
-function getModulePermissions(modulo) {
-    return userPermissions.filter(p => p.modulo === modulo).map(p => p.accion);
-}
-
-function anyModulePermisos() {
-    return userPermissions.length > 0;
+function normalizeAccion(accion) {
+    const a = String(accion || '').trim().toLowerCase();
+    return a.replace(/-$/g, '');
 }
 
 const DOCUMENTOS = [
@@ -252,33 +255,37 @@ function descargarDocumento(archivo, titulo) {
     document.body.removeChild(a);
 }
 
-function getAuthHeaders() {
-    const token = localStorage.getItem('token');
-    const headers = { 'Accept': 'application/json' };
-    if (token && token !== 'undefined' && token !== 'null' && token.length > 20) {
-        headers['Authorization'] = `Bearer ${token}`;
-    }
-    return headers;
-}
-
 function getToken() {
     return localStorage.getItem('token');
 }
 
-function openModal(id) {
-    const overlay = document.getElementById(id);
-    if (overlay) {
-        overlay.classList.add('active');
-        document.body.style.overflow = 'hidden';
-    }
+/* ─────────── Helpers compartidos ─────────── */
+
+function escapeHtml(value) {
+    return String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#039;' }[c]));
 }
 
-function closeModal(id) {
-    const overlay = document.getElementById(id);
-    if (overlay) {
-        overlay.classList.remove('active');
-        document.body.style.overflow = '';
-    }
+function normalize(value) {
+    return String(value || '').toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g, '');
+}
+
+function parseMoney(value) {
+    const n = parseFloat(value);
+    return Number.isFinite(n) ? n : 0;
+}
+
+function money(value) {
+    return parseMoney(value).toFixed(2);
+}
+
+function getRepartidorId(r) {
+    return parseInt(r?.id_repartidor || r?.repartidor_id || r?.id || 0);
+}
+
+function getRepartidorName(r) {
+    if (!r) return 'Sin repartidor';
+    const userName = `${r.usuario?.nombre || ''} ${r.usuario?.apellido || ''}`.trim();
+    return r.nombre || userName || r.nombre_completo || 'Sin repartidor';
 }
 
 document.addEventListener('click', function (e) {

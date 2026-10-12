@@ -33,7 +33,7 @@ function renderPage() {
             <div class="modal-body">
                 <div style="margin-bottom:16px;display:flex;justify-content:flex-end;">${hasPermission('Rutas', 'gestionar-paradas') ? '<button class="btn btn-sm btn-primary" onclick="openParadaForm()"><i class="fas fa-plus"></i> Agregar Parada</button>' : ''}</div>
                 <div class="table-container"><table id="paradas-table" class="display" style="width:100%"><thead><tr>
-                    <th>Orden</th><th>Farmacia</th><th>Hora Estimada</th><th>Acciones</th>
+                    <th>Orden</th><th>Farmacia</th><th>Acciones</th>
                 </tr></thead></table></div>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeParadasModal()">Cerrar</button></div>
@@ -43,10 +43,7 @@ function renderPage() {
             <div class="modal-body">
                 <form id="parada-form">
                     <div class="form-group"><label>Farmacia *</label><select id="p-farmacia" class="form-control" required><option value="">Seleccione...</option>${farmaciasList.map(f => `<option value="${f.id_farmacia}">${f.nombre}</option>`).join('')}</select></div>
-                    <div class="form-row">
-                        <div class="form-group"><label>Orden *</label><input type="number" id="p-orden" class="form-control" min="1" required></div>
-                        <div class="form-group"><label>Hora Estimada</label><input type="time" id="p-hora" class="form-control"></div>
-                    </div>
+                    <div class="form-group"><label>Orden *</label><input type="number" id="p-orden" class="form-control" min="1" required></div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeParadaForm()">Cancelar</button><button class="btn btn-primary" onclick="saveParada()">Guardar</button></div>
@@ -157,7 +154,6 @@ async function loadParadas() {
             columns: [
                 { data: 'orden_parada' },
                 { data: null, render: r => r.farmacia?.nombre || r.nombre_farmacia || '—' },
-                { data: 'hora_estimada', defaultContent: '—' },
                 { data: null, render: r => `<div class="actions">
                     ${hasPermission('Rutas', 'gestionar-paradas') ? `<button class="btn btn-sm btn-warning" onclick="editParada(${r.id_parada})"><i class="fas fa-edit"></i></button>` : ''}
                     ${hasPermission('Rutas', 'gestionar-paradas') ? `<button class="btn btn-sm btn-danger" onclick="delParada(${r.id_parada})"><i class="fas fa-trash"></i></button>` : ''}
@@ -184,17 +180,14 @@ async function editParada(id) {
         document.getElementById('parada-form-title').textContent = 'Editar Parada';
         document.getElementById('p-farmacia').value = p.id_farmacia || '';
         document.getElementById('p-orden').value = p.orden_parada || '';
-        document.getElementById('p-hora').value = p.hora_estimada ? p.hora_estimada.substring(0, 5) : '';
         document.getElementById('parada-form-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar la parada', 'error'); }
 }
 
 async function saveParada() {
-    const horaVal = document.getElementById('p-hora').value;
     const body = {
         id_farmacia: parseInt(document.getElementById('p-farmacia').value),
         orden_parada: parseInt(document.getElementById('p-orden').value),
-        hora_estimada: horaVal ? horaVal + ':00' : null,
     };
     if (!body.id_farmacia || !body.orden_parada) return Swal.fire('Validación', 'Farmacia y orden son obligatorios', 'warning');
     try {
