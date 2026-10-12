@@ -325,13 +325,22 @@ async function refreshPedidos(silent = false) {
 
 function renderPedidosView() {
     const filtered = getFilteredPedidos();
+    const kanbanEl = document.getElementById('pedidos-kanban');
+    const tableSectionEl = document.getElementById('pedidos-table-section');
+    
+    if (!kanbanEl || !tableSectionEl) {
+        // Elements not found - likely running in a different context
+        console.warn('[pedidos] DOM elements for view not found, skipping render');
+        return;
+    }
+    
     if (kanbanViewMode === 'tabla') {
-        document.getElementById('pedidos-kanban').style.display = 'none';
-        document.getElementById('pedidos-table-section').style.display = '';
+        kanbanEl.style.display = 'none';
+        tableSectionEl.style.display = '';
         renderPedidosList(filtered);
     } else {
-        document.getElementById('pedidos-kanban').style.display = '';
-        document.getElementById('pedidos-table-section').style.display = 'none';
+        kanbanEl.style.display = '';
+        tableSectionEl.style.display = 'none';
         renderKanban(filtered);
     }
 }

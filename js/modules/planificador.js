@@ -1,6 +1,5 @@
-// Configuración cargada desde config.js o variables de entorno
-const GPS_MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
-const GPS_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {};
+// Configuración cargada desde map-config.js (que lee de window.MAPBOX_TOKEN y window.FIREBASE_CONFIG)
+// GPS_MAPBOX_TOKEN y GPS_FIREBASE_CONFIG están disponibles como variables globales
 
 let planificadorMap = null;
 let planificadorMarkers = [];
@@ -179,6 +178,12 @@ function initPlanificadorMap() {
     if (planificadorMap) {
         planificadorMap.resize();
         setTimeout(updateMapRoute, 200);
+        return;
+    }
+
+    if (!window.isMapConfigValid()) {
+        console.error('[planificador] Mapbox token not configured. Cannot initialize map.');
+        mapContainer.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;"><i class="fas fa-exclamation-triangle" style="font-size:48px;color:#f59e0b;"></i><h3>Mapbox no configurado</h3><p>Falta el token de acceso de Mapbox. Configure MAPBOX_TOKEN en .env o config.js</p></div>';
         return;
     }
 
@@ -587,6 +592,10 @@ function estaConectado(firebaseUser) {
 function initFirebasePlanificador() {
     try {
         if (!window.firebase) return;
+        if (!window.isFirebaseConfigValid()) {
+            console.warn('[planificador] Firebase config not valid, skipping initialization');
+            return;
+        }
         if (!firebase.apps.length) firebase.initializeApp(GPS_FIREBASE_CONFIG);
         if (planificadorFirebaseRef) planificadorFirebaseRef.off();
         const db = firebase.database();

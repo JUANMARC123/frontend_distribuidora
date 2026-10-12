@@ -1,7 +1,23 @@
 const API_URL = 'http://127.0.0.1:8000/api';
 
-// Mapbox token - cargado desde variable global (no hardcodeado)
+// Mapbox token - Inyectado directamente en el HTML (logistica.html, pedidos.html, etc.)
+// o leído de window.MAPBOX_TOKEN configurado por el despliegue.
+// En producción Hostinger: modificar el <script> en el <head> de cada página HTML.
+// Fallback: dejar cadena vacía si no está configurado.
 window.MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
+
+// Firebase config - Inyectado directamente en el HTML antes de cargar config.js.
+// Los valores pueden leerse también de window.FIREBASE_CONFIG configurado en el HTML.
+window.FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
+    apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
+    authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
+    databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
+    projectId: "mapboxfirebase-a79b5",
+    storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
+    messagingSenderId: "133519102970",
+    appId: "1:133519102970:web:1bf07af71eda04b772ca43",
+    measurementId: "G-SMVVH5FL53"
+};
 
 const ROOT_PATH = (() => {
     const path = window.location.pathname;

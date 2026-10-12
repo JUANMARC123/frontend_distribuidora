@@ -1,13 +1,5 @@
-var GPS_FIREBASE_CONFIG = typeof GPS_FIREBASE_CONFIG !== 'undefined' ? GPS_FIREBASE_CONFIG : {
-    apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
-    authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
-    databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
-    projectId: "mapboxfirebase-a79b5",
-    storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
-    messagingSenderId: "133519102970",
-    appId: "1:133519102970:web:1bf07af71eda04b772ca43",
-    measurementId: "G-SMVVH5FL53"
-};
+// GPS_FIREBASE_CONFIG and GPS_MAPBOX_TOKEN are loaded from map-config.js
+// which reads from window.MAPBOX_TOKEN and window.FIREBASE_CONFIG set by config.js
 
 let trackingMap = null;
 let trackingMarkers = {};
@@ -686,6 +678,15 @@ function initTrackingMap() {
         return;
     }
 
+    if (!window.isMapConfigValid()) {
+        console.error('[tracking] Mapbox token not configured. Cannot initialize map.');
+        const container = document.getElementById('tracking-map');
+        if (container) {
+            container.innerHTML = '<div class="empty-state" style="padding:40px;text-align:center;"><i class="fas fa-exclamation-triangle" style="font-size:48px;color:#f59e0b;"></i><h3>Mapbox no configurado</h3><p>Falta el token de acceso de Mapbox. Configure MAPBOX_TOKEN en .env o config.js</p></div>';
+        }
+        return;
+    }
+
     mapboxgl.accessToken = GPS_MAPBOX_TOKEN;
     trackingMap = new mapboxgl.Map({
         container: 'tracking-map',
@@ -917,6 +918,10 @@ function drawTrackingRoute(coords) {
 function listenFirebaseTracking() {
     try {
         if (!window.firebase) return;
+        if (!window.isFirebaseConfigValid()) {
+            console.warn('[tracking] Firebase config not valid, skipping initialization');
+            return;
+        }
         if (!firebase.apps.length) firebase.initializeApp(GPS_FIREBASE_CONFIG);
         const db = firebase.database();
         if (firebaseTrackingRef) firebaseTrackingRef.off();

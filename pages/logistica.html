@@ -46,7 +46,22 @@
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <!-- Inyección de configuración desde .env (Hostinger) - Sin necesidad de compilación Node.js -->
+    <script>
+        window.MAPBOX_TOKEN = 'pk.xxx_tu_token_mapbox_real_aqui';
+        window.FIREBASE_CONFIG = {
+            apiKey: "AIzaSyC6ocm9J7hQTTf_eRpfrZlZgbt50JHQlIE",
+            authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
+            databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
+            projectId: "mapboxfirebase-a79b5",
+            storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
+            messagingSenderId: "133519102970",
+            appId: "1:133519102970:web:1bf07af71eda04b772ca43",
+            measurementId: "G-SMVVH5FL53"
+        };
+    </script>
     <script src="../js/config.js"></script>
+    <script src="../js/modules/map-config.js"></script>
     <script src="../js/auth.js"></script>
     <script src="../js/layout.js"></script>
     <script src="../js/modules/logistica.js"></script>
