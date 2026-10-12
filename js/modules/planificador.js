@@ -1,15 +1,6 @@
-const GPS_MAPBOX_TOKEN = "pk.eyJ1IjoianVhbnNpcnBhIiwiYSI6ImNtbHB6ZzZiMDA5cmszaG9yN2g2bWk4bjQifQ.67BmhX6Fdql2qNvg7Yq0SQ";
-
-var GPS_FIREBASE_CONFIG = typeof GPS_FIREBASE_CONFIG !== 'undefined' ? GPS_FIREBASE_CONFIG : {
-    apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
-    authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
-    databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
-    projectId: "mapboxfirebase-a79b5",
-    storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
-    messagingSenderId: "133519102970",
-    appId: "1:133519102970:web:1bf07af71eda04b772ca43",
-    measurementId: "G-SMVVH5FL53"
-};
+// Configuración cargada desde config.js o variables de entorno
+const GPS_MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
+const GPS_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {};
 
 let planificadorMap = null;
 let planificadorMarkers = [];
