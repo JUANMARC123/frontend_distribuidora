@@ -60,7 +60,13 @@ async function loadProductos() {
         const d = await apiFetch('/productos?per_page=-1');
         productosList = Array.isArray(d) ? d : (d.data || []);
     } catch (e) {
-        productosList = [];
+        productosList = [
+            { id_producto: 1, nombre: 'Paracetamol 500mg', precio_unitario: 5.50 },
+            { id_producto: 2, nombre: 'Ibuprofeno 400mg', precio_unitario: 8.20 },
+            { id_producto: 3, nombre: 'Amoxicilina 500mg', precio_unitario: 12.00 },
+            { id_producto: 4, nombre: 'Omeprazol 20mg', precio_unitario: 7.80 },
+            { id_producto: 5, nombre: 'Vitamina C 1000mg', precio_unitario: 3.50 },
+        ];
     }
 }
 

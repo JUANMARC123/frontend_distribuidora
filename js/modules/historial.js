@@ -378,7 +378,7 @@ async function loadRutasTab(container) {
     try {
         const [despachos, controles] = await Promise.all([
             apiFetch('/despachos?per_page=100').catch(() => []),
-            apiFetch('/controles-ruta?per_page=100').catch(() => []),
+            apiFetch('/hojas-ruta?per_page=100').catch(() => []),
         ]);
         historialData.despachos = Array.isArray(despachos) ? despachos : (despachos.data || []);
         historialData.controles = Array.isArray(controles) ? controles : (controles.data || []);
