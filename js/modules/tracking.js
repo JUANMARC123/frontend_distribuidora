@@ -677,24 +677,25 @@ async function autoRegistrarLlegada(rutaId, stopIdx, stop) {
 
 function initTrackingMap() {
     const container = document.getElementById('tracking-map');
-    if (!container || typeof mapboxgl === 'undefined') return;
+    if (!container) return;
 
     if (trackingMap) {
-        trackingMap.resize();
+        trackingMap.invalidateSize();
         trackingUserInteracted = false;
         updateTrackingMap(rutasActivas.find(r => getRutaId(r) === trackingActiveId));
         return;
     }
 
-    mapboxgl.accessToken = GPS_MAPBOX_TOKEN;
-    trackingMap = new mapboxgl.Map({
-        container: 'tracking-map',
-        style: 'mapbox://styles/mapbox/light-v11',
+    trackingMap = L.map('tracking-map', {
         center: [-67.8217, -16.4897],
         zoom: 12,
-        fadeDuration: 0,
     });
-    trackingMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+    }).addTo(trackingMap);
+
     trackingMap.on('zoomend', () => { trackingUserInteracted = true; });
     trackingMap.on('dragend', () => { trackingUserInteracted = true; });
     trackingMap.on('load', () => {
@@ -734,7 +735,7 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
     }
 
     var coords = origenCoords ? [origenCoords] : [];
-    var bounds = new mapboxgl.LngLatBounds();
+    var bounds = L.latLngBounds();
     var gpsKey = 'gps_' + getRutaId(ruta);
 
     var todasCompletadas = true;
@@ -763,14 +764,14 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
     }
 
     if (origenCoords) {
-        bounds.extend(origenCoords);
+        bounds.extend(L.latLng(origenCoords[1], origenCoords[0]));
         if (trackingMarkers[gpsKey]) {
-            trackingMarkers[gpsKey].setLngLat(origenCoords);
+            trackingMarkers[gpsKey].setLatLng(L.latLng(origenCoords[1], origenCoords[0]));
             updateGPSTrail(gpsKey, origenCoords);
             updateGPSMarkerColor(gpsKey, gpsColor);
         } else {
             clearGPSTrail(gpsKey);
-            trackingMarkers[gpsKey] = createGPSMarker(origenCoords, '\
+            trackingMarkers[gpsKey] = createGPSMarker(L.latLng(origenCoords[1], origenCoords[0]), '\
                 <b>' + trackSafe(getRepartidorNameTracking(rep)) + '</b><br>\
                 ' + trackSafe(formatVehiculoTracking(ruta.vehiculo || ruta)) + '\
             ', gpsColor);
@@ -781,7 +782,7 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
         var stopCoords = getStopCoords(stop);
         if (!stopCoords) return;
         coords.push(stopCoords);
-        bounds.extend(stopCoords);
+        bounds.extend(L.latLng(stopCoords[1], stopCoords[0]));
         var estado = normalizeTrack(stop.estado?.nombre_estado || stop.estado || '');
         var llegada = stop.hora_llegada;
         var color;
@@ -799,12 +800,12 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
             Estado: ' + trackSafe(stop.estado?.nombre_estado || stop.estado || 'Pendiente') + '<br>\
             Pedido #' + trackSafe(stop.id_pedido || stop.pedido_id || '') + '\
         ';
-        trackingMarkers['parada_' + idx] = createTrackingMarker(String(idx + 1), stopCoords, color, popup);
+        trackingMarkers['parada_' + idx] = createTrackingMarker(String(idx + 1), L.latLng(stopCoords[1], stopCoords[0]), color, popup);
     });
 
     drawTrackingRoute(coords);
     if (coords.length > 1 && forceFitBounds && !trackingUserInteracted) {
-        trackingMap.fitBounds(bounds, { padding: 64, maxZoom: 14, animate: false });
+        trackingMap.fitBounds(bounds, {padding: [64, 64], maxZoom: 14, animate: false});
     }
 }
 
@@ -815,10 +816,9 @@ function createGPSMarker(coords, popupHtml, color) {
     el.dataset.gpsColor = color;
     el.innerHTML = '<i class="fas fa-truck"></i>';
     el.style.background = color;
-    return new mapboxgl.Marker({ element: el })
-        .setLngLat(coords)
-        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-        .addTo(trackingMap);
+    var marker = L.marker(L.latLng(coords[1], coords[0]), {element: el});
+    marker.bindPopup(popupHtml);
+    return marker;
 }
 
 function updateGPSMarkerColor(key, color) {
@@ -853,7 +853,7 @@ function drawGPSTrail(key) {
     history.slice(0, -1).forEach((coord, idx) => {
         const dot = gpsTrailDots[key][idx];
         if (!dot.parentNode) {
-            const m = new mapboxgl.Marker({ element: dot }).setLngLat(coord).addTo(trackingMap);
+            const m = L.marker(L.latLng(coord[1], coord[0]), {element: dot}).addTo(trackingMap);
         }
     });
 
@@ -888,10 +888,7 @@ function createTrackingMarker(label, coords, color, popupHtml) {
         font-size:12px;
         font-weight:700;
     `;
-    return new mapboxgl.Marker({ element: el })
-        .setLngLat(coords)
-        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-        .addTo(trackingMap);
+    return L.marker(L.latLng(coords[1], coords[0]), {element: el}).bindPopup(popupHtml);
 }
 
 function drawTrackingRoute(coords) {

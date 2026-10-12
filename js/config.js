@@ -1,8 +1,5 @@
 const API_URL = 'http://127.0.0.1:8000/api';
 
-// Mapbox token - cargado desde variable global (no hardcodeado)
-window.MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
-
 const ROOT_PATH = (() => {
     const path = window.location.pathname;
     return path.includes('/pages/') ? '../' : './';

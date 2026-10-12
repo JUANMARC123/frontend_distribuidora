@@ -1,5 +1,4 @@
 // Configuración cargada desde config.js o variables de entorno
-const GPS_MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
 const GPS_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {};
 
 let planificadorMap = null;
@@ -174,40 +173,28 @@ function renderRepartidores() {
 
 function initPlanificadorMap() {
     const mapContainer = document.getElementById('planificador-map');
-    if (!mapContainer || typeof mapboxgl === 'undefined') return;
+    if (!mapContainer) return;
 
     if (planificadorMap) {
-        planificadorMap.resize();
+        planificadorMap.invalidateSize();
         setTimeout(updateMapRoute, 200);
         return;
     }
 
-    mapboxgl.accessToken = GPS_MAPBOX_TOKEN;
-    planificadorMap = new mapboxgl.Map({
-        container: 'planificador-map',
-        style: 'mapbox://styles/mapbox/light-v11',
+    planificadorMap = L.map('planificador-map', {
         center: [-67.8217, -16.4897],
         zoom: 12,
-        fadeDuration: 0,
     });
-    planificadorMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+    }).addTo(planificadorMap);
+
     planificadorMap.on('zoomend', () => { planificadorUserInteracted = true; });
     planificadorMap.on('dragend', () => { planificadorUserInteracted = true; });
     planificadorMap.on('load', function () {
         planificadorUserInteracted = false;
-        if (!planificadorMap.getSource('route')) {
-            planificadorMap.addSource('route', {
-                type: 'geojson',
-                data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-            });
-            planificadorMap.addLayer({
-                id: 'route-line',
-                type: 'line',
-                source: 'route',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-opacity': 0.85 }
-            });
-        }
         updateMapRoute();
     });
 }
@@ -315,15 +302,15 @@ function updatePlanificadorSummary() {
 function updateMapRoute() {
     updateRoutePreviewLabel();
     renderPlanificadorAlerts();
-    if (!planificadorMap || !planificadorMap.loaded()) return;
+    if (!planificadorMap) return;
 
     planificadorMarkers.forEach(m => m.remove());
     planificadorMarkers = [];
 
-    const source = planificadorMap.getSource('route');
-    const coords = [];
     const routePedidos = getRoutePedidosForPreview();
+    const selected = selectedRepartidorId ? findRepartidor(selectedRepartidorId) : null;
     let gpsCoord = null;
+    const coords = [];
 
     if (selectedRepartidorId) {
         const rep = findRepartidor(selectedRepartidorId);
@@ -343,47 +330,34 @@ function updateMapRoute() {
         if (pedidoCoords) coords.push(pedidoCoords);
     });
 
-    const data = {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: coords.length > 1 ? coords : [] }
-    };
-    if (source) source.setData(data);
-    if (!coords.length) return;
+    // Dibujar ruta (línea)
+    if (coords.length > 1) {
+        const routeCoords = coords.map(c => L.latLng(c[1], c[0]));
+        L.polyline(routeCoords, {color: '#2563eb', weight: 4, opacity: 0.85}).addTo(planificadorMap);
+    }
 
+    // Crear marcadores (números en círculos)
     coords.forEach((coord, idx) => {
         const el = document.createElement('div');
-        el.className = 'mapbox-marker';
-        if (idx === 0 && gpsCoord) {
-            el.textContent = 'GPS';
-            el.style.cssText = `
-                width:32px;height:32px;
-                background:#111827;border-radius:50%;
-                border:3px solid white;
-                box-shadow:0 2px 8px rgba(15,23,42,.3);
-                display:flex;align-items:center;justify-content:center;
-                color:white;font-size:10px;font-weight:700;
-            `;
-        } else {
-            const num = gpsCoord ? idx : idx + 1;
-            el.textContent = String(num);
-            el.style.cssText = `
-                width:26px;height:26px;
-                background:#2563eb;border-radius:50%;
-                border:3px solid white;
-                box-shadow:0 2px 8px rgba(15,23,42,.3);
-                display:flex;align-items:center;justify-content:center;
-                color:white;font-size:12px;font-weight:700;
-            `;
-        }
-        const marker = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(planificadorMap);
+        el.className = 'leaflet-marker';
+        el.innerHTML = String(idx + 1);
+        el.style.cssText = `
+            width:30px;height:30px;
+            background:#2563eb;border-radius:50%;
+            border:3px solid white;
+            box-shadow:0 2px 8px rgba(15,23,42,.3);
+            display:flex;align-items:center;justify-content:center;
+            color:white;font-size:12px;font-weight:700;
+            position:relative;
+        `;
+        const marker = L.marker(L.latLng(coord[1], coord[0]), {element: el}).addTo(planificadorMap);
         planificadorMarkers.push(marker);
     });
 
-    const bounds = new mapboxgl.LngLatBounds();
-    coords.forEach(coord => bounds.extend(coord));
-    if (!planificadorUserInteracted) {
-        planificadorMap.fitBounds(bounds, { padding: 64, maxZoom: 14, animate: false });
+    // Ajustar límites
+    const bounds = L.latLngBounds(coords.map(c => L.latLng(c[1], c[0])));
+    if (coords.length > 0 && !planificadorUserInteracted) {
+        planificadorMap.fitBounds(bounds, {padding: [64, 64], maxZoom: 14, animate: false});
     }
 }
 
