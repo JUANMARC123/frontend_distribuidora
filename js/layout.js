@@ -30,7 +30,6 @@ async function loadSidebar() {
         { icon: 'fa-hospital', label: 'Farmacias', page: `${prefix}pages/farmacias.html`, moduleKey: 'Farmacias' },
         { icon: 'fa-truck', label: 'Repartidores', page: `${prefix}pages/repartidores.html`, moduleKey: 'Repartidores' },
         { icon: 'fa-car', label: 'Vehiculos', page: `${prefix}pages/vehiculos.html`, moduleKey: 'Vehiculos' },
-        { icon: 'fa-road', label: 'Rutas', page: `${prefix}pages/rutas.html`, moduleKey: 'Rutas' },
         { section: 'Finanzas' },
         { icon: 'fa-cash-register', label: 'Caja', page: `${prefix}pages/caja.html`, moduleKey: 'Caja Diaria' },
         { section: 'Administracion' },

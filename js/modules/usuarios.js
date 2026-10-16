@@ -9,7 +9,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 async function loadEstadosUsuario() {
     try { const d = await apiFetch('/catalogos/estados-usuario'); estadosUsuario = Array.isArray(d) ? d : (d.data || []); }
-    catch (e) { estadosUsuario = [{ id_estado_usuario: 1, nombre_estado: 'Activo' }, { id_estado_usuario: 2, nombre_estado: 'Bloqueado' }]; }
+    catch (e) { estadosUsuario = [{ clave: 'activo', nombre_estado: 'Activo' }, { clave: 'bloqueado', nombre_estado: 'Bloqueado' }]; }
 }
 
 async function loadRoles() {
@@ -43,8 +43,8 @@ function renderPage() {
                         <div class="form-group"><label>Teléfono</label><input type="text" id="f-telefono" class="form-control" placeholder="8 dígitos" maxlength="8" oninput="this.value=this.value.replace(/[^0-9]/g,'').slice(0,8)"></div>
                     </div>
                     <div class="form-group"><label>Contraseña ${editingId ? '(dejar vacío para no cambiar)' : '*'}</label><input type="password" id="f-password" class="form-control" ${editingId ? '' : 'required'}></div>
-                    <div class="form-group"><label>Estado</label><select id="f-estado" class="form-control">${estadosUsuario.map(e => `<option value="${e.id_estado_usuario}">${e.nombre_estado}</option>`).join('')}</select></div>
-                    <div class="form-group"><label>Roles</label><div id="roles-checkboxes" style="display:flex;flex-wrap:wrap;gap:10px;margin-top:6px;">${allRoles.map(r => `<label style="display:flex;align-items:center;gap:6px;font-size:14px;cursor:pointer;"><input type="checkbox" name="roles" value="${r.id_rol}"> ${r.nombre}</label>`).join('')}</div></div>
+                    <div class="form-group"><label>Estado</label><select id="f-estado" class="form-control">${estadosUsuario.map(e => `<option value="${e.clave}">${e.nombre_estado}</option>`).join('')}</select></div>
+                    <div class="form-group"><label>Rol</label><select id="f-rol" class="form-control"><option value="">Sin rol</option>${allRoles.map(r => `<option value="${r.id_rol}">${r.nombre}</option>`).join('')}</select></div>
                 </form>
             </div>
             <div class="modal-footer"><button class="btn btn-secondary" onclick="closeModal()">Cancelar</button><button class="btn btn-primary" onclick="save()">Guardar</button></div>
@@ -63,7 +63,7 @@ function renderPage() {
 
 async function loadTable() {
     try {
-        const d = await apiFetch('/usuarios');
+        const d = await apiFetch('/usuarios?per_page=-1');
         const data = Array.isArray(d) ? d : (d.data || []);
         if ($.fn.DataTable.isDataTable('#main-table')) { usuariosTable.destroy(); }
         usuariosTable = $('#main-table').DataTable({
@@ -73,8 +73,8 @@ async function loadTable() {
                 { data: null, render: r => `${r.nombre || ''} ${r.apellido || ''}` },
                 { data: 'email' },
                 { data: 'telefono', defaultContent: '—' },
-                { data: null, render: r => r.estado?.nombre_estado ? getStatusBadge(r.estado.nombre_estado) : getStatusBadge(r.nombre_estado || 'Activo') },
-                { data: null, render: r => (r.roles || []).map(rol => `<span class="badge badge-primary">${rol.nombre}</span>`).join(' ') || '—' },
+                { data: null, render: r => getStatusBadge(r.estado || r.nombre_estado || 'Activo') },
+                { data: null, render: r => (r.roles || []).map(rol => `<span class="badge badge-primary">${rol.nombre ?? rol.name ?? ''}</span>`).join(' ') || '—' },
                 { data: null, render: r => `<div class="actions">
                     ${hasPermission('Usuarios', 'asignar-roles') ? `<button class="btn btn-sm btn-info" onclick="openRolesModal(${r.id_usuario},'${r.nombre || ''} ${r.apellido || ''}')" title="Asignar Roles"><i class="fas fa-user-tag"></i></button>` : ''}
                     ${hasPermission('Usuarios', 'editar') ? `<button class="btn btn-sm btn-warning" onclick="edit(${r.id_usuario})"><i class="fas fa-edit"></i></button>` : ''}
@@ -120,9 +120,9 @@ async function edit(id) {
         document.getElementById('f-telefono').value = u.telefono || '';
         document.getElementById('f-password').value = '';
         document.getElementById('f-password').required = false;
-        document.getElementById('f-estado').value = u.id_estado_usuario || '';
-        document.querySelectorAll('input[name="roles"]').forEach(cb => cb.checked = false);
-        if (u.roles) u.roles.forEach(r => { const cb = document.querySelector(`input[name="roles"][value="${r.id_rol}"]`); if (cb) cb.checked = true; });
+        document.getElementById('f-estado').value = u.estado || '';
+        const rolActual = (u.roles && u.roles.length) ? (u.roles[0].id_rol ?? u.roles[0].id) : '';
+        document.getElementById('f-rol').value = rolActual ?? '';
         document.getElementById('main-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'No se pudo cargar el usuario', 'error'); }
 }
@@ -133,12 +133,15 @@ async function save() {
         apellido: document.getElementById('f-apellido').value.trim(),
         email: document.getElementById('f-email').value.trim(),
         telefono: document.getElementById('f-telefono').value.trim(),
-        id_estado_usuario: parseInt(document.getElementById('f-estado').value),
+        estado: document.getElementById('f-estado').value || 'activo',
     };
 
     const password = document.getElementById('f-password').value;
 
     if (password) body.password = password;
+
+    const rolSel = document.getElementById('f-rol').value;
+    body.roles = rolSel ? [parseInt(rolSel)] : [];
 
     if (!body.nombre || !body.apellido || !body.email) {
         return Swal.fire('Validación', 'Nombre, apellido y email son obligatorios.', 'warning');
@@ -159,25 +162,9 @@ async function save() {
     try {
         if (editingId) {
             await apiFetch(`/usuarios/${editingId}`, { method: 'PUT', body });
-
-            const roles = [...document.querySelectorAll('input[name="roles"]:checked')]
-                .map(cb => parseInt(cb.value));
-
-            await apiFetch(`/usuarios/${editingId}/roles`, { method: 'POST', body: { roles } });
-
             Swal.fire('Actualizado', 'Usuario actualizado', 'success');
         } else {
-            const res = await apiFetch('/usuarios', { method: 'POST', body });
-
-            const newId = res.usuario?.id_usuario || res.data?.id_usuario || res.id_usuario;
-
-            const roles = [...document.querySelectorAll('input[name="roles"]:checked')]
-                .map(cb => parseInt(cb.value));
-
-            if (newId && roles.length) {
-                await apiFetch(`/usuarios/${newId}/roles`, { method: 'POST', body: { roles } });
-            }
-
+            await apiFetch('/usuarios', { method: 'POST', body });
             Swal.fire('Creado', 'Usuario creado', 'success');
         }
 
@@ -249,17 +236,19 @@ let rolesUserId = null;
 async function openRolesModal(id, name) {
     rolesUserId = id;
     document.getElementById('roles-user-name').textContent = name;
+    document.getElementById('roles-list').innerHTML = '<div class="loading"><div class="spinner"></div>Cargando...</div>';
+    document.getElementById('roles-modal').classList.add('active');
     try {
-        const d = await apiFetch(`/usuarios/${id}/roles`);
-        const userRoles = Array.isArray(d) ? d : (d.roles || d.data || []);
-        const userRoleIds = userRoles.map(r => r.id_rol || r.pivot?.id_rol || r.id);
+        // El endpoint /usuarios/{id}/roles no existe: se obtienen los roles del propio usuario.
+        const d = await apiFetch(`/usuarios/${id}`);
+        const u = d.usuario || d.data || d;
+        const userRoleIds = (u.roles || []).map(r => r.id_rol ?? r.id);
         document.getElementById('roles-list').innerHTML = allRoles.length ? allRoles.map(r =>
             `<label style="display:flex;align-items:center;gap:10px;padding:8px 0;cursor:pointer;border-bottom:1px solid var(--border);">
                 <input type="checkbox" class="rol-cb" value="${r.id_rol}" ${userRoleIds.includes(r.id_rol) ? 'checked' : ''}>
                 <span>${r.nombre}</span>
             </label>`
         ).join('') : '<p class="text-muted">No hay roles disponibles</p>';
-        document.getElementById('roles-modal').classList.add('active');
     } catch (e) { Swal.fire('Error', 'Error al cargar roles', 'error'); }
 }
 
@@ -268,7 +257,8 @@ function closeRolesModal() { document.getElementById('roles-modal').classList.re
 async function saveRoles() {
     const roles = [...document.querySelectorAll('.rol-cb:checked')].map(cb => parseInt(cb.value));
     try {
-        await apiFetch(`/usuarios/${rolesUserId}/roles`, { method: 'POST', body: { roles } });
+        // El rol se actualiza en el propio usuario (el endpoint /usuarios/{id}/roles no existe).
+        await apiFetch(`/usuarios/${rolesUserId}`, { method: 'PUT', body: { roles } });
         Swal.fire('Actualizado', 'Roles asignados correctamente', 'success');
         closeRolesModal();
         if (usuariosTable) await reloadDataTable(usuariosTable, '/usuarios');

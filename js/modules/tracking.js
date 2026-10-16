@@ -1,18 +1,11 @@
-var GPS_FIREBASE_CONFIG = typeof GPS_FIREBASE_CONFIG !== 'undefined' ? GPS_FIREBASE_CONFIG : {
-    apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
-    authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
-    databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
-    projectId: "mapboxfirebase-a79b5",
-    storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
-    messagingSenderId: "133519102970",
-    appId: "1:133519102970:web:1bf07af71eda04b772ca43",
-    measurementId: "G-SMVVH5FL53"
-};
+// GPS_FIREBASE_CONFIG se define una sola vez en js/config.js, que se carga antes
+// que este modulo. Declararla aqui otra vez rompia el parseo de todo el archivo
+// cuando planificador.js ya la habia declarado con `const` en el mismo scope.
 
 let trackingMap = null;
 let trackingMarkers = {};
+let trackingRouteLine = null;
 let trackingActiveId = null;
-let firebaseTrackingRef = null;
 let rutasActivas = [];
 let trackingUserInteracted = false;
 let gpsPositionHistory = {};
@@ -541,7 +534,7 @@ async function marcarFallido() {
         title: 'Entrega Fallida',
         input: 'textarea',
         inputLabel: 'Motivo (opcional)',
-        inputPlaceholder: 'Describa el motivo...',
+        inputPlaceholder: 'Describe el motivo...',
         showCancelButton: true,
         confirmButtonText: 'Marcar fallido',
         cancelButtonText: 'Cancelar',
@@ -677,34 +670,47 @@ async function autoRegistrarLlegada(rutaId, stopIdx, stop) {
 
 function initTrackingMap() {
     const container = document.getElementById('tracking-map');
-    if (!container || typeof mapboxgl === 'undefined') return;
+    if (!container) return;
+
+    // renderTracking() reescribe el HTML al cambiar de pestana, asi que el mapa
+    // cacheado puede quedar apuntando a un div ya desconectado del DOM.
+    if (trackingMap && (!trackingMap.getContainer() || !trackingMap.getContainer().isConnected)) {
+        trackingMap.remove();
+        trackingMap = null;
+        trackingRouteLine = null;
+        trackingMarkers = {};
+        gpsTrailDots = {};
+    }
 
     if (trackingMap) {
-        trackingMap.resize();
+        trackingMap.invalidateSize();
         trackingUserInteracted = false;
         updateTrackingMap(rutasActivas.find(r => getRutaId(r) === trackingActiveId));
         return;
     }
 
-    mapboxgl.accessToken = GPS_MAPBOX_TOKEN;
-    trackingMap = new mapboxgl.Map({
-        container: 'tracking-map',
-        style: 'mapbox://styles/mapbox/light-v11',
-        center: [-67.8217, -16.4897],
-        zoom: 12,
-        fadeDuration: 0,
-    });
-    trackingMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    trackingMap = L.map('tracking-map').setView([-16.4897, -67.8217], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+    }).addTo(trackingMap);
+
+    // Leaflet usa esquinas sin guion: 'bottomright', 'topright', etc.
+    trackingMap.addControl(L.control.scale({ position: 'bottomright' }));
     trackingMap.on('zoomend', () => { trackingUserInteracted = true; });
     trackingMap.on('dragend', () => { trackingUserInteracted = true; });
-    trackingMap.on('load', () => {
+
+    // Leaflet no dispara el evento 'load' de Mapbox; whenReady es el equivalente.
+    trackingMap.whenReady(() => {
         trackingUserInteracted = false;
+        setTimeout(() => { if (trackingMap) trackingMap.invalidateSize(); }, 0);
         updateTrackingMap(rutasActivas.find(r => getRutaId(r) === trackingActiveId));
     });
 }
 
 function updateTrackingMap(ruta, forceFitBounds = true) {
-    if (!trackingMap || !trackingMap.loaded() || !ruta) return;
+    if (!trackingMap || !ruta) return;
 
     Object.keys(trackingMarkers).forEach(k => {
         if (k.startsWith('gps')) {
@@ -725,16 +731,11 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
     var origenCoords = null;
 
     if (rep.firebase_uid && firebaseUsuariosData?.[rep.firebase_uid]?.ubicacion) {
-        var u = firebaseUsuariosData[rep.firebase_uid].ubicacion;
-        var lat = u.lat ?? u.latitud;
-        var lng = u.lng ?? u.longitud;
-        if (lat != null && lng != null) {
-            origenCoords = [parseFloat(lng), parseFloat(lat)];
-        }
+        origenCoords = coordsGpsValidas(firebaseUsuariosData[rep.firebase_uid].ubicacion);
     }
 
     var coords = origenCoords ? [origenCoords] : [];
-    var bounds = new mapboxgl.LngLatBounds();
+    var bounds = L.latLngBounds();
     var gpsKey = 'gps_' + getRutaId(ruta);
 
     var todasCompletadas = true;
@@ -763,9 +764,9 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
     }
 
     if (origenCoords) {
-        bounds.extend(origenCoords);
+        bounds.extend(L.latLng(origenCoords[1], origenCoords[0]));
         if (trackingMarkers[gpsKey]) {
-            trackingMarkers[gpsKey].setLngLat(origenCoords);
+            trackingMarkers[gpsKey].setLatLng(L.latLng(origenCoords[1], origenCoords[0]));
             updateGPSTrail(gpsKey, origenCoords);
             updateGPSMarkerColor(gpsKey, gpsColor);
         } else {
@@ -781,7 +782,7 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
         var stopCoords = getStopCoords(stop);
         if (!stopCoords) return;
         coords.push(stopCoords);
-        bounds.extend(stopCoords);
+        bounds.extend(L.latLng(stopCoords[1], stopCoords[0]));
         var estado = normalizeTrack(stop.estado?.nombre_estado || stop.estado || '');
         var llegada = stop.hora_llegada;
         var color;
@@ -803,22 +804,33 @@ function updateTrackingMap(ruta, forceFitBounds = true) {
     });
 
     drawTrackingRoute(coords);
-    if (coords.length > 1 && forceFitBounds && !trackingUserInteracted) {
+    const trackingSize = trackingMap.getSize();
+    if (coords.length > 1 && forceFitBounds && !trackingUserInteracted
+        && bounds.isValid() && trackingSize.x > 0 && trackingSize.y > 0) {
         trackingMap.fitBounds(bounds, { padding: 64, maxZoom: 14, animate: false });
     }
 }
 
 function createGPSMarker(coords, popupHtml, color) {
     color = color || '#2563eb';
-    var el = document.createElement('div');
-    el.className = 'gps-marker';
-    el.dataset.gpsColor = color;
-    el.innerHTML = '<i class="fas fa-truck"></i>';
-    el.style.background = color;
-    return new mapboxgl.Marker({ element: el })
-        .setLngLat(coords)
-        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-        .addTo(trackingMap);
+    const marker = L.marker(L.latLng(coords[1], coords[0]), {
+        icon: L.divIcon({
+            html: '<i class="fas fa-truck"></i>',
+            className: 'gps-marker',
+            iconSize: [30, 30],
+            iconAnchor: [15, 15],
+        }),
+    }).addTo(trackingMap);
+
+    // Leaflet ya montó el icono, así que getElement() devuelve el contenedor.
+    const el = marker.getElement();
+    if (el) {
+        el.style.background = color;
+        el.dataset.gpsColor = color;
+    }
+
+    marker.bindPopup(popupHtml);
+    return marker;
 }
 
 function updateGPSMarkerColor(key, color) {
@@ -844,73 +856,85 @@ function drawGPSTrail(key) {
     if (!history || history.length < 2) return;
 
     gpsTrailDots[key] = gpsTrailDots[key] || [];
+
+    // Un punto por cada posición antigua; la última la ocupa el marcador del vehículo.
     while (gpsTrailDots[key].length < history.length - 1) {
-        const dot = document.createElement('div');
-        dot.className = 'gps-trail-dot';
+        const dot = L.marker([0, 0], {
+            icon: L.divIcon({
+                className: 'gps-trail-dot',
+                iconSize: [8, 8],
+                iconAnchor: [4, 4],
+            }),
+            interactive: false,
+            keyboard: false,
+        });
         gpsTrailDots[key].push(dot);
     }
 
     history.slice(0, -1).forEach((coord, idx) => {
         const dot = gpsTrailDots[key][idx];
-        if (!dot.parentNode) {
-            const m = new mapboxgl.Marker({ element: dot }).setLngLat(coord).addTo(trackingMap);
-        }
+        dot.setLatLng(L.latLng(coord[1], coord[0]));
+        // L.Layer no expone getMap() en Leaflet 1.x; la comprobacion publica de
+        // si una capa ya esta montada es Map.hasLayer().
+        if (!trackingMap.hasLayer(dot)) { trackingMap.addLayer(dot); }
     });
 
     if (gpsTrailDots[key].length > history.length - 1) {
         const extra = gpsTrailDots[key].splice(history.length - 1);
-        extra.forEach(d => { if (d.parentNode) d.parentNode.remove(); });
+        extra.forEach(d => d.remove());
     }
 }
 
 function clearGPSTrail(key) {
     if (gpsTrailDots[key]) {
-        gpsTrailDots[key].forEach(d => { if (d.parentNode) d.parentNode.remove(); });
+        // remove() sobre el marcador, no sobre su parentNode: este último es la
+        // capa de Leaflet y arrancarla vaciaría el mapa entero.
+        gpsTrailDots[key].forEach(d => d.remove());
         delete gpsTrailDots[key];
     }
     if (gpsPositionHistory[key]) delete gpsPositionHistory[key];
 }
 
 function createTrackingMarker(label, coords, color, popupHtml) {
-    const el = document.createElement('div');
-    el.textContent = label;
-    el.style.cssText = `
-        width:28px;
-        height:28px;
-        background:${color};
-        border-radius:50%;
-        border:3px solid white;
-        box-shadow:0 2px 8px rgba(15,23,42,.3);
-        display:flex;
-        align-items:center;
-        justify-content:center;
-        color:white;
-        font-size:12px;
-        font-weight:700;
-    `;
-    return new mapboxgl.Marker({ element: el })
-        .setLngLat(coords)
-        .setPopup(new mapboxgl.Popup().setHTML(popupHtml))
-        .addTo(trackingMap);
+    const html = '<div style="'
+        + 'width:28px;height:28px;'
+        + 'background:' + color + ';'
+        + 'border-radius:50%;'
+        + 'border:3px solid white;'
+        + 'box-shadow:0 2px 8px rgba(15,23,42,.3);'
+        + 'display:flex;align-items:center;justify-content:center;'
+        + 'color:white;font-size:12px;font-weight:700;'
+        + '">' + trackSafe(label) + '</div>';
+
+    return L.marker(L.latLng(coords[1], coords[0]), {
+        icon: L.divIcon({
+            html: html,
+            className: 'tracking-stop-marker',
+            iconSize: [28, 28],
+            iconAnchor: [14, 14],
+        }),
+    }).bindPopup(popupHtml).addTo(trackingMap);
 }
 
 function drawTrackingRoute(coords) {
-    const data = {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: coords.length > 1 ? coords : [] }
-    };
-    if (trackingMap.getSource('tracking-route')) {
-        trackingMap.getSource('tracking-route').setData(data);
+    const latlngs = coords.map(c => L.latLng(c[1], c[0]));
+
+    if (latlngs.length < 2) {
+        if (trackingRouteLine) trackingRouteLine.setLatLngs([]);
+        return;
+    }
+
+    if (trackingRouteLine) {
+        trackingRouteLine.setLatLngs(latlngs);
     } else {
-        trackingMap.addSource('tracking-route', { type: 'geojson', data });
-        trackingMap.addLayer({
-            id: 'tracking-route-line',
-            type: 'line',
-            source: 'tracking-route',
-            layout: { 'line-join': 'round', 'line-cap': 'round' },
-            paint: { 'line-color': '#2563eb', 'line-width': 3, 'line-opacity': 0.75, 'line-dasharray': [2, 2] }
-        });
+        trackingRouteLine = L.polyline(latlngs, {
+            color: '#2563eb',
+            weight: 3,
+            opacity: 0.75,
+            dashArray: '6, 6',
+            lineJoin: 'round',
+            lineCap: 'round',
+        }).addTo(trackingMap);
     }
 }
 
@@ -919,28 +943,6 @@ function listenFirebaseTracking() {
         if (!window.firebase) return;
         if (!firebase.apps.length) firebase.initializeApp(GPS_FIREBASE_CONFIG);
         const db = firebase.database();
-        if (firebaseTrackingRef) firebaseTrackingRef.off();
-
-        firebaseTrackingRef = db.ref('rutas_activas');
-        firebaseTrackingRef.on('value', snapshot => {
-            const data = snapshot.val();
-            if (!data || !trackingMap) return;
-
-            Object.keys(data).forEach(rutaId => {
-                const rutaData = data[rutaId];
-                const ubicacion = rutaData?.ubicacion;
-                if (!ubicacion) return;
-                const lat = ubicacion.lat ?? ubicacion.latitud;
-                const lng = ubicacion.lng ?? ubicacion.longitud;
-                if (lat == null || lng == null) return;
-                const key = `gps_${rutaId}`;
-                const coords = [parseFloat(lng), parseFloat(lat)];
-                if (trackingMarkers[key]) {
-                    trackingMarkers[key].setLngLat(coords);
-                    updateGPSTrail(key, coords);
-                }
-            });
-        });
 
         const usuariosRef = db.ref('usuarios');
         usuariosRef.on('value', snapshot => {
@@ -954,19 +956,16 @@ function listenFirebaseTracking() {
                 if (!fbUid || !data[fbUid]) return;
 
                 const ubicacion = data[fbUid].ubicacion;
-                if (!ubicacion) return;
-                const lat = ubicacion.lat ?? ubicacion.latitud;
-                const lng = ubicacion.lng ?? ubicacion.longitud;
-                if (lat == null || lng == null) return;
+                const coords = coordsGpsValidas(ubicacion);
+                if (!coords) return;
 
                 const rutaId = getRutaId(ruta);
-                const key = `gps_${rutaId}`;
-                const coords = [parseFloat(lng), parseFloat(lat)];
+                const key = 'gps_' + rutaId;
 
                 if (trackingMarkers[key]) {
-                    trackingMarkers[key].setLngLat(coords);
+                    trackingMarkers[key].setLatLng(L.latLng(coords[1], coords[0]));
                     updateGPSTrail(key, coords);
-                } else if (trackingMap.loaded()) {
+                } else {
                     trackingMarkers[key] = createGPSMarker(coords, `
                         <b>${trackSafe(getRepartidorNameTracking(rep))}</b><br>
                         ${trackSafe(formatVehiculoTracking(ruta.vehiculo || ruta))}
@@ -974,7 +973,7 @@ function listenFirebaseTracking() {
                 }
 
                 if (trackingActiveId === rutaId) {
-                    checkProximityToStops(ruta, [parseFloat(lng), parseFloat(lat)]);
+                    checkProximityToStops(ruta, coords);
                 }
             });
 
@@ -1011,9 +1010,10 @@ function getRutaCompletadas(r) {
 }
 
 function getStopCoords(stop) {
-    const lat = parseFloat(stop?.latitud || stop?.farmacia?.latitud || stop?.pedido?.farmacia?.latitud || stop?.lat);
-    const lng = parseFloat(stop?.longitud || stop?.farmacia?.longitud || stop?.pedido?.farmacia?.longitud || stop?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const lat = numeroFinito(stop?.latitud, stop?.farmacia?.latitud, stop?.pedido?.farmacia?.latitud, stop?.lat);
+    const lng = numeroFinito(stop?.longitud, stop?.farmacia?.longitud, stop?.pedido?.farmacia?.longitud, stop?.lng);
+    if (lat === null || lng === null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     return [lng, lat];
 }
 

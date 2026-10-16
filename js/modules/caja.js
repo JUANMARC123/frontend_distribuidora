@@ -229,15 +229,31 @@ function renderDetalleCajas() {
                 <span class="text-muted">${cajasDia.length} caja(s)</span>
             </div>
             <div class="card-body">
-                <div class="cash-card-grid">
-                    ${cajasDia.map(renderCajaCard).join('')}
+                <div class="table-container">
+                    <table class="product-detail-table">
+                        <thead>
+                            <tr>
+                                <th>Repartidor</th>
+                                <th>Fecha</th>
+                                <th>Estado</th>
+                                <th class="text-end">Inicial</th>
+                                <th class="text-end">Ingresos</th>
+                                <th class="text-end">Gastos</th>
+                                <th class="text-end">Final</th>
+                                <th class="text-end">Acciones</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${cajasDia.map(renderCajaFila).join('')}
+                        </tbody>
+                    </table>
                 </div>
             </div>
         </div>
     `;
 }
 
-function renderCajaCard(c) {
+function renderCajaFila(c) {
     const abierta = isCajaAbierta(c);
     const gastos = Array.isArray(c.gastos) ? c.gastos : (Array.isArray(c.gastos_detalle) ? c.gastos_detalle : []);
     const rep = c.repartidor || {};
@@ -245,45 +261,54 @@ function renderCajaCard(c) {
     const gastosMonto = parseMoney(c.gastos_totales ?? c.total_gastos ?? (Array.isArray(c.gastos) ? gastos.reduce((s, g) => s + parseMoney(g.monto), 0) : c.gastos));
     const montoFinal = parseMoney(c.monto_final ?? (parseMoney(c.monto_inicial) + ingresos - gastosMonto));
 
-    return `
-        <article class="cash-card">
-            <div class="cash-card-header">
-                <div>
-                    <h4>${cajaSafe(getRepartidorName(rep))}</h4>
-                    <p>${formatDateShort(c.fecha || c.created_at)}</p>
+    const fila = `
+        <tr>
+            <td><strong>${cajaSafe(getRepartidorName(rep))}</strong></td>
+            <td>${formatDateShort(c.fecha || c.created_at)}</td>
+            <td>${getStatusBadge(getCajaEstado(c))}</td>
+            <td class="text-end">Bs ${money(c.monto_inicial)}</td>
+            <td class="text-end text-success">Bs ${money(ingresos)}</td>
+            <td class="text-end text-danger">Bs ${money(gastosMonto)}</td>
+            <td class="text-end"><strong>Bs ${money(montoFinal)}</strong></td>
+            <td>
+                <div class="actions">
+                    ${gastos.length ? `<button class="btn btn-sm btn-outline" onclick="toggleCajaDetalle(${c.id_caja})" title="Ver gastos"><i class="fas fa-list"></i></button>` : ''}
+                    ${abierta ? `
+                        <button class="btn btn-sm btn-success" onclick="openIngresoModal(${c.id_caja})" title="Ingreso"><i class="fas fa-plus"></i></button>
+                        <button class="btn btn-sm btn-danger" onclick="abrirGastoModal(${c.id_caja})" title="Gasto"><i class="fas fa-minus"></i></button>
+                        <button class="btn btn-sm btn-primary" onclick="cerrarCaja(${c.id_caja})" title="Cerrar caja"><i class="fas fa-check"></i></button>
+                    ` : '<span class="text-muted">Cerrada</span>'}
                 </div>
-                ${getStatusBadge(getCajaEstado(c))}
-            </div>
-            <div class="cash-totals">
-                <div class="cash-total"><strong>Bs ${money(c.monto_inicial)}</strong><span>Inicial</span></div>
-                <div class="cash-total"><strong>Bs ${money(ingresos)}</strong><span>Ingresos</span></div>
-                <div class="cash-total"><strong>Bs ${money(gastosMonto)}</strong><span>Gastos</span></div>
-                <div class="cash-total"><strong>Bs ${money(montoFinal)}</strong><span>Final</span></div>
-            </div>
-            <div class="cash-actions">
-                ${abierta ? `
-                    <button class="btn btn-sm btn-success" onclick="openIngresoModal(${c.id_caja})"><i class="fas fa-plus"></i> Ingreso</button>
-                    <button class="btn btn-sm btn-danger" onclick="abrirGastoModal(${c.id_caja})"><i class="fas fa-minus"></i> Gasto</button>
-                    <button class="btn btn-sm btn-primary" onclick="cerrarCaja(${c.id_caja})"><i class="fas fa-check"></i> Cerrar</button>
-                ` : '<span class="text-muted">Caja cerrada</span>'}
-            </div>
-            ${gastos.length ? `
-                <div class="section-divider"></div>
+            </td>
+        </tr>
+    `;
+
+    const detalle = gastos.length ? `
+        <tr class="caja-detalle-row" id="caja-detalle-${c.id_caja}" style="display:none;">
+            <td colspan="8" style="background:var(--bg);">
                 <table class="product-detail-table">
-                    <thead><tr><th>Tipo</th><th>Detalle</th><th>Monto</th></tr></thead>
+                    <thead><tr><th>Tipo</th><th>Detalle</th><th class="text-end">Monto</th></tr></thead>
                     <tbody>
                         ${gastos.map(g => `
                             <tr>
                                 <td>${cajaSafe(g.tipo_gasto || 'OTRO')}</td>
                                 <td>${cajaSafe(g.descripcion || 'Sin descripcion')}</td>
-                                <td>Bs ${money(g.monto)}</td>
+                                <td class="text-end">Bs ${money(g.monto)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
                 </table>
-            ` : ''}
-        </article>
-    `;
+            </td>
+        </tr>
+    ` : '';
+
+    return fila + detalle;
+}
+
+function toggleCajaDetalle(id) {
+    const row = document.getElementById(`caja-detalle-${id}`);
+    if (!row) return;
+    row.style.display = row.style.display === 'none' ? 'table-row' : 'none';
 }
 
 function openAbrirCajaModal() {

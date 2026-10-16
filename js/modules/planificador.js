@@ -1,9 +1,11 @@
 // Configuración cargada desde config.js o variables de entorno
-const GPS_MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
-const GPS_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {};
+// GPS_FIREBASE_CONFIG la define js/config.js como binding lexico global, visible
+// para este modulo sin necesidad de redeclararlo (rehacerlo fue lo que rompio
+// tracking.js al compartir pagina con planificador.js).
 
 let planificadorMap = null;
 let planificadorMarkers = [];
+let planificadorRouteLine = null;
 let pedidosPendientes = [];
 let repartidoresData = [];
 let assignmentsByRepartidor = {};
@@ -28,7 +30,9 @@ async function loadPedidosPendientes() {
         const all = Array.isArray(d) ? d : (d.data || []);
         pedidosPendientes = all.filter(p => {
             const estadoId = p.id_estado_pedido;
-            const estadoName = (p.estado?.nombre_estado || p.nombre_estado || '').toLowerCase();
+            // pedidos.estado es un ENUM de texto; sin el fallback `|| p.estado` esto
+            // quedaba vacio y los pedidos ya en ruta se colaban como pendientes.
+            const estadoName = (p.estado?.nombre_estado || p.nombre_estado || p.estado || '').toLowerCase();
             const excluir = estadoName.includes('entreg') || estadoName.includes('cancel') || estadoName.includes('ruta') || estadoName.includes('despach');
             if (excluir) return false;
             return estadoId <= 2 || estadoName.includes('pend') || estadoName.includes('prepar');
@@ -76,11 +80,16 @@ function renderPedidos() {
         return;
     }
 
-    container.innerHTML = filtered.map(p => renderPedidoCard(p, assigned.has(getPedidoId(p)))).join('');
+    container.innerHTML = filtered.map(p => renderPlanificadorPedidoCard(p, assigned.has(getPedidoId(p)))).join('');
     setTimeout(initSortables, 0);
 }
 
-function renderPedidoCard(p, isAssigned = false, repId = null) {
+// Nombre propio y no renderPedidoCard a secas: pedidos.js define otro con el mismo
+// nombre global y firma distinta —(p)—. Al compartir pagina y ganar la ultima
+// carga, pedidos.js acababa llamando a esta version, que recibia (p, indice, array)
+// de Array.map y leia el indice como `isAssigned`, marcando como deshabilitadas
+// todas las tarjetas salvo la primera.
+function renderPlanificadorPedidoCard(p, isAssigned = false, repId = null) {
     const id = getPedidoId(p);
     const coords = getPedidoCoords(p);
     const total = getPedidoTotal(p);
@@ -157,7 +166,7 @@ function renderRepartidores() {
                     <span>Bs ${money(total)}</span>
                 </div>
                 <div class="dropzone" data-repartidor-id="${id}">
-                    ${pedidos.length ? pedidos.map(p => renderPedidoCard(p, false, id)).join('') : '<div class="dropzone-empty"><i class="fas fa-arrow-down"></i> Soltar pedidos aqui</div>'}
+                    ${pedidos.length ? pedidos.map(p => renderPlanificadorPedidoCard(p, false, id)).join('') : '<div class="dropzone-empty"><i class="fas fa-arrow-down"></i> Soltar pedidos aqui</div>'}
                 </div>
                 <div style="display:flex;gap:4px;padding:8px;">
                     <button class="btn btn-sm btn-outline" style="flex:1;" onclick="event.stopPropagation(); mostrarHistorialRepartidor(${id})">
@@ -174,40 +183,40 @@ function renderRepartidores() {
 
 function initPlanificadorMap() {
     const mapContainer = document.getElementById('planificador-map');
-    if (!mapContainer || typeof mapboxgl === 'undefined') return;
+    if (!mapContainer) return;
+
+    // El mapa se cachea entre pestañas, pero renderPlanificador() reescribe el
+    // HTML y deja el contenedor anterior huérfano. Si ya no está en el DOM hay
+    // que destruirlo y recrearlo sobre el div nuevo, o el mapa queda en blanco.
+    if (planificadorMap && (!planificadorMap.getContainer() || !planificadorMap.getContainer().isConnected)) {
+        planificadorMap.remove();
+        planificadorMap = null;
+        planificadorRouteLine = null;
+    }
 
     if (planificadorMap) {
-        planificadorMap.resize();
+        planificadorMap.invalidateSize();
         setTimeout(updateMapRoute, 200);
         return;
     }
 
-    mapboxgl.accessToken = GPS_MAPBOX_TOKEN;
-    planificadorMap = new mapboxgl.Map({
-        container: 'planificador-map',
-        style: 'mapbox://styles/mapbox/light-v11',
-        center: [-67.8217, -16.4897],
-        zoom: 12,
-        fadeDuration: 0,
-    });
-    planificadorMap.addControl(new mapboxgl.NavigationControl(), 'top-right');
+    planificadorMap = L.map('planificador-map').setView([-16.4897, -67.8217], 12);
+
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        attribution: '&copy; OpenStreetMap contributors',
+        maxZoom: 19,
+    }).addTo(planificadorMap);
+
+    planificadorMap.addControl(L.control.scale({ position: 'bottomright' }));
     planificadorMap.on('zoomend', () => { planificadorUserInteracted = true; });
     planificadorMap.on('dragend', () => { planificadorUserInteracted = true; });
-    planificadorMap.on('load', function () {
+
+    // Leaflet no emite el evento 'load' de Mapbox; whenReady dispara cuando el
+    // mapa tiene dimensiones y puede calcular su vista inicial.
+    planificadorMap.whenReady(function () {
         planificadorUserInteracted = false;
-        if (!planificadorMap.getSource('route')) {
-            planificadorMap.addSource('route', {
-                type: 'geojson',
-                data: { type: 'Feature', properties: {}, geometry: { type: 'LineString', coordinates: [] } }
-            });
-            planificadorMap.addLayer({
-                id: 'route-line',
-                type: 'line',
-                source: 'route',
-                layout: { 'line-join': 'round', 'line-cap': 'round' },
-                paint: { 'line-color': '#2563eb', 'line-width': 4, 'line-opacity': 0.85 }
-            });
-        }
+        // El contenedor puede haber estado oculto (0x0) al crear el mapa.
+        setTimeout(() => { if (planificadorMap) planificadorMap.invalidateSize(); }, 0);
         updateMapRoute();
     });
 }
@@ -315,26 +324,24 @@ function updatePlanificadorSummary() {
 function updateMapRoute() {
     updateRoutePreviewLabel();
     renderPlanificadorAlerts();
-    if (!planificadorMap || !planificadorMap.loaded()) return;
+    if (!planificadorMap) return;
 
     planificadorMarkers.forEach(m => m.remove());
     planificadorMarkers = [];
 
-    const source = planificadorMap.getSource('route');
     const coords = [];
     const routePedidos = getRoutePedidosForPreview();
     let gpsCoord = null;
 
     if (selectedRepartidorId) {
         const rep = findRepartidor(selectedRepartidorId);
-        if (rep?.firebase_uid && firebaseUsuariosData?.[rep.firebase_uid]?.ubicacion) {
-            const u = firebaseUsuariosData[rep.firebase_uid].ubicacion;
-            const lat = u.lat ?? u.latitud;
-            const lng = u.lng ?? u.longitud;
-            if (lat != null && lng != null) {
-                gpsCoord = [parseFloat(lng), parseFloat(lat)];
-                coords.push(gpsCoord);
-            }
+        const ubicacion = rep?.firebase_uid
+            ? firebaseUsuariosData?.[rep.firebase_uid]?.ubicacion
+            : null;
+        const gps = coordsGpsValidas(ubicacion);
+        if (gps) {
+            gpsCoord = gps;
+            coords.push(gpsCoord);
         }
     }
 
@@ -343,46 +350,64 @@ function updateMapRoute() {
         if (pedidoCoords) coords.push(pedidoCoords);
     });
 
-    const data = {
-        type: 'Feature',
-        properties: {},
-        geometry: { type: 'LineString', coordinates: coords.length > 1 ? coords : [] }
-    };
-    if (source) source.setData(data);
-    if (!coords.length) return;
+    const coordsValidas = coords.filter(c =>
+        Array.isArray(c) && Number.isFinite(c[0]) && Number.isFinite(c[1])
+    );
 
-    coords.forEach((coord, idx) => {
-        const el = document.createElement('div');
-        el.className = 'mapbox-marker';
+    const latlngs = coordsValidas.map(c => L.latLng(c[1], c[0]));
+
+    if (latlngs.length > 1) {
+        if (planificadorRouteLine) {
+            planificadorRouteLine.setLatLngs(latlngs);
+        } else {
+            planificadorRouteLine = L.polyline(latlngs, {
+                color: '#2563eb',
+                weight: 4,
+                opacity: 0.85,
+                lineJoin: 'round',
+                lineCap: 'round',
+            }).addTo(planificadorMap);
+        }
+    } else if (planificadorRouteLine) {
+        planificadorRouteLine.setLatLngs([]);
+    }
+
+    if (!coordsValidas.length) return;
+
+    coordsValidas.forEach((coord, idx) => {
+        let size, text, style;
         if (idx === 0 && gpsCoord) {
-            el.textContent = 'GPS';
-            el.style.cssText = `
-                width:32px;height:32px;
-                background:#111827;border-radius:50%;
-                border:3px solid white;
-                box-shadow:0 2px 8px rgba(15,23,42,.3);
-                display:flex;align-items:center;justify-content:center;
-                color:white;font-size:10px;font-weight:700;
-            `;
+            text = 'GPS';
+            size = 32;
+            style = 'width:32px;height:32px;background:#111827;border-radius:50%;'
+                + 'border:3px solid white;box-shadow:0 2px 8px rgba(15,23,42,.3);'
+                + 'display:flex;align-items:center;justify-content:center;'
+                + 'color:white;font-size:10px;font-weight:700;';
         } else {
             const num = gpsCoord ? idx : idx + 1;
-            el.textContent = String(num);
-            el.style.cssText = `
-                width:26px;height:26px;
-                background:#2563eb;border-radius:50%;
-                border:3px solid white;
-                box-shadow:0 2px 8px rgba(15,23,42,.3);
-                display:flex;align-items:center;justify-content:center;
-                color:white;font-size:12px;font-weight:700;
-            `;
+            text = String(num);
+            size = 26;
+            style = 'width:26px;height:26px;background:#2563eb;border-radius:50%;'
+                + 'border:3px solid white;box-shadow:0 2px 8px rgba(15,23,42,.3);'
+                + 'display:flex;align-items:center;justify-content:center;'
+                + 'color:white;font-size:12px;font-weight:700;';
         }
-        const marker = new mapboxgl.Marker({ element: el }).setLngLat(coord).addTo(planificadorMap);
+        // Leaflet no acepta `element` como opción; el marker custom va por divIcon.
+        const marker = L.marker(L.latLng(coord[1], coord[0]), {
+            icon: L.divIcon({
+                html: `<div style="${style}">${safeText(text)}</div>`,
+                className: 'planificador-marker-icon',
+                iconSize: [size, size],
+                iconAnchor: [size / 2, size / 2],
+            }),
+        }).addTo(planificadorMap);
         planificadorMarkers.push(marker);
     });
 
-    const bounds = new mapboxgl.LngLatBounds();
-    coords.forEach(coord => bounds.extend(coord));
-    if (!planificadorUserInteracted) {
+    const bounds = L.latLngBounds();
+    coordsValidas.forEach(coord => bounds.extend(L.latLng(coord[1], coord[0])));
+    const mapSize = planificadorMap.getSize();
+    if (!planificadorUserInteracted && bounds.isValid() && mapSize.x > 0 && mapSize.y > 0) {
         planificadorMap.fitBounds(bounds, { padding: 64, maxZoom: 14, animate: false });
     }
 }
@@ -464,14 +489,21 @@ async function iniciarRuta(repartidorId) {
     if (!result.isConfirmed) return;
 
     try {
-        await apiFetch('/logistica/planificacion/confirmar', {
+        const fechaHoy = new Date().toISOString().slice(0, 10);
+        const hojaResp = await apiFetch('/hojas-ruta', {
             method: 'POST',
             body: {
-                repartidor_id: repartidorId,
-                vehiculo_id: vehiculo ? (vehiculo.id_vehiculo || vehiculo.id || null) : null,
-                pedidos,
+                fecha: fechaHoy,
+                id_repartidor: repartidorId,
+                id_vehiculo: vehiculo.id_vehiculo || vehiculo.id,
+                pedidos: pedidos.map(p => ({ id_pedido: p.id_pedido, orden_visita: p.orden })),
             },
         });
+        const hoja = hojaResp?.data ?? hojaResp;
+        const idHoja = hoja?.id_hoja_ruta;
+        if (!idHoja) throw new Error('No se pudo obtener la hoja de ruta creada.');
+
+        await apiFetch(`/hojas-ruta/${idHoja}/iniciar`, { method: 'POST' });
 
         Swal.fire({
             title: 'Ruta iniciada',
@@ -529,9 +561,10 @@ function getPedidoTotal(p) {
 }
 
 function getPedidoCoords(p) {
-    const lat = parseFloat(p?.farmacia?.latitud || p?.latitud || p?.lat);
-    const lng = parseFloat(p?.farmacia?.longitud || p?.longitud || p?.lng);
-    if (!Number.isFinite(lat) || !Number.isFinite(lng)) return null;
+    const lat = numeroFinito(p?.farmacia?.latitud, p?.latitud, p?.lat);
+    const lng = numeroFinito(p?.farmacia?.longitud, p?.longitud, p?.lng);
+    if (lat === null || lng === null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
     return [lng, lat];
 }
 
@@ -545,7 +578,6 @@ function getRepartidorVehiculo(r) {
             id_vehiculo: r.id_vehiculo,
             marca: r.marca,
             modelo: r.modelo,
-            placa: r.placa,
         };
     }
     return null;
@@ -567,7 +599,7 @@ function normalizeText(value) { return normalize(value); }
 
 function safeText(value) { return escapeHtml(value); }
 
-/* ─────────── Firebase / Conexion ─────────── */
+/* ─────────── Firebase / Conexión ─────────── */
 
 function estaConectado(firebaseUser) {
     if (!firebaseUser?.ubicacion) return false;

@@ -641,6 +641,7 @@ textarea.form-control {
     animation: modalIn 0.2s ease;
 }
 
+
 @keyframes modalIn {
     from {
         opacity: 0;
@@ -681,6 +682,15 @@ textarea.form-control {
 
 .modal-body {
     padding: 24px;
+}
+
+.permisos-container {
+    max-height: 340px;
+    overflow-y: auto;
+    padding: 12px;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    background: #f8fafc;
 }
 
 .modal-footer {
@@ -1424,6 +1434,74 @@ textarea.form-control {
     align-items: start;
 }
 
+/* ─────────── Farmacias: lista + mapa ─────────── */
+.farmacias-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(380px, 0.85fr);
+    gap: 16px;
+    align-items: start;
+}
+
+.farmacias-list {
+    align-content: start;
+}
+
+.farmacias-map-panel {
+    position: sticky;
+    top: 16px;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    box-shadow: var(--shadow);
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+}
+
+.farmacias-map-panel .card-header {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin: 0;
+}
+
+.farmacias-map-panel .card-header h3 {
+    font-size: 14px;
+    margin: 0;
+}
+
+.farmacias-map {
+    height: 620px;
+    width: 100%;
+}
+
+.client-card.selected {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 2px rgba(37, 99, 235, 0.25), var(--shadow);
+}
+
+#farmacias-table tbody tr.selected {
+    background: rgba(37, 99, 235, 0.08);
+}
+
+@media (max-width: 992px) {
+    .farmacias-layout {
+        grid-template-columns: 1fr;
+    }
+
+    .farmacias-map-panel {
+        position: static;
+        order: -1;
+    }
+
+    .farmacias-map {
+        height: 360px;
+    }
+}
+
 .kanban-board {
     display: grid;
     grid-template-columns: repeat(5, minmax(220px, 1fr));
@@ -1580,44 +1658,6 @@ textarea.form-control {
     display: grid;
     grid-template-columns: minmax(0, 1fr);
     gap: 16px;
-}
-
-.cash-actions {
-    display: flex;
-    gap: 8px;
-    flex-wrap: wrap;
-}
-
-.cash-card-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-    gap: 12px;
-}
-
-.cash-card {
-    border: 1px solid var(--border);
-    border-radius: 8px;
-    padding: 14px;
-    background: #fff;
-    box-shadow: none;
-}
-
-.cash-card-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    gap: 10px;
-    margin-bottom: 12px;
-}
-
-.cash-card-header h4,
-.cash-card-header p {
-    margin: 0;
-}
-
-.cash-card-header p {
-    color: var(--text-muted);
-    font-size: 12px;
 }
 
 .ops-hero.compact {
@@ -1952,11 +1992,595 @@ textarea.form-control {
     font-size: 14px;
 }
 
-/* ─────────── Kanban column data attr for entregado ─────────── */
-.kanban-column[data-column="entregado"] .kanban-column-body {
+/* ─────────── Pedidos order toggle ─────────── */
+.pedidos-order-toggle {
+    display: flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.pedidos-order-toggle .toggle-btn {
+    padding: 8px 12px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
     display: flex;
     align-items: center;
     justify-content: center;
+}
+
+.pedidos-order-toggle .toggle-btn:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.pedidos-order-toggle .toggle-btn.active {
+    background: var(--primary);
+    color: white;
+}
+
+.pedidos-order-toggle .toggle-btn i {
+    font-size: 14px;
+}
+
+/* ─────────── Kanban card limit selector ─────────── */
+.kanban-limit-selector {
+    display: flex;
+    align-items: center;
+}
+
+.kanban-limit-selector .form-control-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* ─────────── Table page size selector ─────────── */
+.table-page-size-selector {
+    display: flex;
+    align-items: center;
+}
+
+.table-page-size-selector .form-control-sm {
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+/* ─────────── Expand column button ─────────── */
+.expand-col-btn {
+    text-align: left;
+    padding: 6px 10px;
+    font-size: 12px;
+}
+
+.expand-col-btn:hover {
+    background: var(--bg) !important;
+}
+
+/* ─────────── Pagination bar ─────────── */
+.pagination-bar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    flex-wrap: wrap;
+    gap: 8px;
+    padding: 12px 0 4px;
+    margin-top: 8px;
+    border-top: 1px solid var(--border);
+}
+
+.pagination-bar .pagination-size,
+.pagination-bar .pagination-nav {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.pagination-bar .text-muted {
+    font-size: 12px;
+}
+
+.pagination-bar select.form-control-sm {
+    width: auto;
+    padding: 4px 8px;
+    font-size: 12px;
+}
+
+/* ─────────── Segmented filter ─────────── */
+.segmented-filter {
+    display: inline-flex;
+    background: var(--card-bg);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+
+.segmented-filter .seg-btn {
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    transition: var(--transition);
+}
+
+.segmented-filter .seg-btn:hover {
+    background: var(--bg);
+    color: var(--text);
+}
+
+.segmented-filter .seg-btn.active {
+    background: var(--primary);
+    color: #fff;
+}
+
+/* ─────────── Historial tabs ─────────── */
+.historial-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 1px solid var(--border);
+    padding: 0 4px;
+    margin-bottom: 16px;
+    overflow-x: auto;
+}
+
+.historial-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border: none;
+    background: transparent;
+    color: var(--text-muted);
+    font-size: 13px;
+    font-weight: 500;
+    cursor: pointer;
+    border-radius: var(--radius) var(--radius) 0 0;
+    transition: var(--transition);
+    white-space: nowrap;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+}
+
+.historial-tab:hover {
+    color: var(--text);
+    background: var(--bg);
+}
+
+.historial-tab.active {
+    color: var(--primary);
+    background: var(--card-bg);
+    border-bottom-color: var(--primary);
+}
+
+/* ─────────── Historial drawer ─────────── */
+.drawer-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.4);
+    z-index: 1040;
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.drawer-overlay.active {
+    opacity: 1;
+    visibility: visible;
+}
+
+.historial-drawer {
+    position: fixed;
+    top: 0;
+    right: 0;
+    width: 480px;
+    max-width: 100vw;
+    height: 100vh;
+    background: var(--card-bg);
+    border-left: 1px solid var(--border);
+    box-shadow: -4px 0 24px rgba(0, 0, 0, 0.15);
+    z-index: 1050;
+    transform: translateX(100%);
+    transition: transform 0.3s ease;
+    display: flex;
+    flex-direction: column;
+}
+
+.historial-drawer.open {
+    transform: translateX(0);
+}
+
+.historial-drawer-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+}
+
+.historial-drawer-header h3 {
+    margin: 0;
+    font-size: 16px;
+    font-weight: 600;
+}
+
+.historial-drawer-header .modal-close {
+    background: none;
+    border: none;
+    font-size: 22px;
+    line-height: 1;
+    color: var(--text-muted);
+    cursor: pointer;
+    padding: 4px;
+}
+
+.historial-drawer-header .modal-close:hover {
+    color: var(--text);
+}
+
+.historial-drawer-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.historial-drawer-body .info-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    font-size: 13px;
+    margin-bottom: 16px;
+}
+
+.historial-drawer-body .info-grid > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.historial-drawer-body .info-grid strong {
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+.historial-drawer-body .info-grid span {
+    font-size: 13px;
+    color: var(--text);
+}
+
+.historial-drawer-body .historial-section {
+    margin-bottom: 16px;
+    padding-bottom: 16px;
+    border-bottom: 1px solid var(--border);
+}
+
+.historial-drawer-body .historial-section:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+    padding-bottom: 0;
+}
+
+.historial-drawer-body .historial-section h4 {
+    margin: 0 0 8px;
+    font-size: 13px;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.historial-drawer-body .timeline {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    padding-left: 14px;
+    border-left: 2px solid var(--border);
+}
+
+.historial-drawer-body .timeline-item {
+    position: relative;
+    padding-left: 12px;
+}
+
+.historial-drawer-body .timeline-item::before {
+    content: '';
+    position: absolute;
+    left: -7px;
+    top: 4px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--card-bg);
+    border: 2px solid var(--border);
+}
+
+.historial-drawer-body .timeline-item.success::before {
+    background: var(--success);
+    border-color: var(--success);
+}
+
+.historial-drawer-body .timeline-item.warning::before {
+    background: var(--warning);
+    border-color: var(--warning);
+}
+
+.historial-drawer-body .timeline-item.danger::before {
+    background: var(--danger);
+    border-color: var(--danger);
+}
+
+.historial-drawer-body .timeline-content strong {
+    display: block;
+    font-size: 13px;
+}
+
+.historial-drawer-body .timeline-content small {
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+.historial-drawer-body .product-detail-table {
+    font-size: 12px;
+}
+
+.historial-drawer-body .product-detail-table th,
+.historial-drawer-body .product-detail-table td {
+    padding: 6px 8px;
+}
+
+.historial-drawer-body .evidencias-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(120px, 1fr));
+    gap: 8px;
+}
+
+.historial-drawer-body .evidencia-item {
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+    overflow: hidden;
+    background: var(--card-bg);
+}
+
+.historial-drawer-body .evidencia-item img {
+    width: 100%;
+    height: 80px;
+    object-fit: cover;
+}
+
+.historial-drawer-body .evidencia-info {
+    padding: 6px;
+    font-size: 11px;
+}
+
+.historial-drawer-body .evidencia-placeholder {
+    height: 80px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: var(--bg);
+    color: var(--text-muted);
+    font-size: 11px;
+}
+
+/* ─────────── Paradas (hoja de ruta) ─────────── */
+.historial-drawer-body .paradas-list {
+    max-height: 280px;
+    overflow-y: auto;
+}
+
+.historial-drawer-body .parada-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 4px;
+    border-bottom: 1px solid var(--border);
+    font-size: 13px;
+}
+
+.historial-drawer-body .parada-item:last-child {
+    border-bottom: none;
+}
+
+.historial-drawer-body .parada-item .parada-info {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+}
+
+.historial-drawer-body .parada-item .parada-info span {
+    font-size: 11px;
+}
+
+.text-success { color: var(--success); }
+.text-danger { color: var(--danger); }
+.text-muted { color: var(--text-muted); }
+.text-end { text-align: right; }
+
+#hoja-ruta-mapa {
+    height: 300px;
+    border-radius: var(--radius);
+    overflow: hidden;
+}
+
+/* ─────────── Modal de trazabilidad (2 columnas) ─────────── */
+.historial-drawer.detail-wide {
+    width: min(1100px, 100vw);
+}
+
+.trazabilidad-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 20px;
+    align-items: start;
+}
+
+.trazabilidad-col {
+    min-width: 0;
+}
+
+.historial-drawer-body .parada-item.current {
+    background: #eff6ff;
+    border-left: 3px solid var(--primary);
+    border-radius: 6px;
+    padding-left: 8px;
+}
+
+#historial-traz-mapa {
+    height: 320px;
+    border-radius: var(--radius);
+    overflow: hidden;
+    border: 1px solid var(--border);
+}
+
+.trazabilidad-modal {
+    max-width: min(1200px, 96vw);
+    width: 100%;
+    max-height: 90vh;
+    display: none;
+    flex-direction: column;
+    z-index: 2500;
+}
+
+.trazabilidad-modal.active {
+    display: flex !important;
+}
+
+.trazabilidad-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.trazabilidad-header {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 10px 16px;
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    border-radius: var(--radius) var(--radius) 0 0;
+    margin: -16px -16px 16px;
+}
+
+.trazabilidad-header > div {
+    display: flex;
+    flex-direction: column;
+    gap: 2px;
+}
+
+.trazabilidad-header strong {
+    color: var(--text-muted);
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+    font-weight: 600;
+}
+
+.trazabilidad-header span {
+    font-size: 13px;
+    color: var(--text);
+}
+
+.paradas-table-wrapper {
+    max-height: 420px;
+    overflow: auto;
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.paradas-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+}
+
+.paradas-table thead th {
+    position: sticky;
+    top: 0;
+    background: #f8fafc;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    font-size: 11px;
+    letter-spacing: 0.03em;
+    text-align: left;
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    z-index: 1;
+}
+
+.paradas-table tbody td {
+    padding: 8px 10px;
+    border-bottom: 1px solid var(--border);
+    vertical-align: middle;
+}
+
+.paradas-table tbody tr.current {
+    background: #eff6ff;
+}
+
+.paradas-table tbody tr:hover {
+    background: rgba(15, 23, 42, 0.03);
+}
+
+#trazabilidad-modal-overlay {
+    z-index: 2400;
+}
+
+#trazabilidad-modal-overlay.active {
+    z-index: 2400 !important;
+}
+
+#despacho-modal-overlay.nested {
+    z-index: 2550;
+}
+
+#despacho-modal-overlay.nested.active {
+    z-index: 2550 !important;
+}
+
+.despacho-modal {
+    max-width: min(760px, 96vw);
+    width: 100%;
+    max-height: 85vh;
+    display: none;
+    flex-direction: column;
+    z-index: 2600;
+}
+
+.despacho-modal.active {
+    display: flex !important;
+}
+
+.despacho-modal .modal-body {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+}
+
+.modal-overlay.nested {
+    z-index: 1055;
+}
+
+@media (max-width: 900px) {
+    .trazabilidad-grid {
+        grid-template-columns: 1fr;
+    }
+    .paradas-table-wrapper {
+        max-height: none;
+    }
 }
 
 /* SortableJS ghost */

@@ -1,12 +1,69 @@
 const API_URL = 'http://127.0.0.1:8000/api';
 
-// Mapbox token - cargado desde variable global (no hardcodeado)
-window.MAPBOX_TOKEN = window.MAPBOX_TOKEN || '';
+/**
+ * Configuracion de Realtime Database, unica fuente para todo el front.
+ *
+ * Antes estaba duplicada: tracking.js la declaraba con `var` y planificador.js con
+ * `const` sobre el mismo nombre. Como ambos se cargan en logistica.html, el `var`
+ * de tracking.js chocaba con el `const` previo y el navegador rechazaba el archivo
+ * entero ("Identifier 'GPS_FIREBASE_CONFIG' has already been declared"), tumbando
+ * la pestana de Seguimiento completa.
+ *
+ * Las credenciales de una app web de Firebase son publicas por diseno (viajan al
+ * navegador igualmente); la proteccion real son las reglas de la base. Aun asi se
+ * admite un override desde window.FIREBASE_CONFIG (p. ej. un config.local.js) para
+ * no volver a incrustarlas en mas sitios.
+ */
+const GPS_FIREBASE_CONFIG = window.FIREBASE_CONFIG || {
+    apiKey: "AIzaSyDLpt_G8VOvmePuAYEQyffhU1Qb9braKSw",
+    authDomain: "mapboxfirebase-a79b5.firebaseapp.com",
+    databaseURL: "https://mapboxfirebase-a79b5-default-rtdb.firebaseio.com",
+    projectId: "mapboxfirebase-a79b5",
+    storageBucket: "mapboxfirebase-a79b5.firebasestorage.app",
+    messagingSenderId: "133519102970",
+    appId: "1:133519102970:web:1bf07af71eda04b772ca43",
+    measurementId: "G-SMVVH5FL53",
+};
 
 const ROOT_PATH = (() => {
     const path = window.location.pathname;
     return path.includes('/pages/') ? '../' : './';
 })();
+
+/**
+ * Devuelve el primer valor parseable como numero finito, o null.
+ *
+ * La ubicacion que publica la app puede llegar como `latitud`/`longitud`
+ * (modelo Android) o como `lat`/`lng`, y en algunos casos con cadenas
+ * invalidas (p. ej. "NaN"). Sin esta validacion, un `parseFloat` devolvia
+ * NaN y Leaflet rompia en `fitBounds` ("Invalid LatLng object: (NaN, ...)").
+ */
+function numeroFinito() {
+    for (let i = 0; i < arguments.length; i++) {
+        const v = arguments[i];
+        if (v === null || v === undefined || v === '') continue;
+        const n = parseFloat(v);
+        if (Number.isFinite(n)) return n;
+    }
+    return null;
+}
+
+/**
+ * Normaliza una ubicacion de Firebase a [lng, lat] validando que ambos
+ * valores sean numeros finitos y esten dentro del rango geografico.
+ * Devuelve null si la ubicacion no es utilizable.
+ */
+function coordsGpsValidas(u) {
+    if (!u || typeof u !== 'object') return null;
+    const lat = numeroFinito(u.latitud, u.lat);
+    const lng = numeroFinito(u.longitud, u.lng);
+    if (lat === null || lng === null) return null;
+    if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return null;
+    // (0, 0) es el valor por defecto de Location sin fix; nunca es una
+    // posicion real de la operacion.
+    if (lat === 0 && lng === 0) return null;
+    return [lng, lat];
+}
 
 async function apiFetch(endpoint, options = {}) {
     const fullUrl = `${API_URL}${endpoint}`;
@@ -124,6 +181,32 @@ function getStatusBadge(status) {
     };
     const cls = map[status?.toLowerCase()] || 'badge-secondary';
     return `<span class="badge ${cls}">${status}</span>`;
+}
+
+/**
+ * Devuelve la etiqueta legible de un estado.
+ *
+ * Los estados de pedido (y de otras entidades) son ENUM de texto en la BD, asi que
+ * viajan como 'en_ruta' o 'pendiente'. getStatusBadge busca sus claves por forma
+ * hablada ('en ruta'), asi que sin esta traduccion los badges salen en gris y con
+ * guion bajo en pantalla.
+ */
+function estadoLabel(estado) {
+    const crudo = estado && typeof estado === 'object'
+        ? (estado.nombre_estado || '')
+        : String(estado || '');
+
+    if (!crudo) return '';
+
+    const clave = crudo.toLowerCase().replace(/\s+/g, '_');
+
+    const catalogo = (typeof estadosPedido !== 'undefined' && Array.isArray(estadosPedido))
+        ? estadosPedido
+        : [];
+    const catalogado = catalogo.find(e => String(e.clave || '').toLowerCase() === clave);
+    if (catalogado) return catalogado.nombre_estado;
+
+    return clave.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
 }
 
 function formatDate(dateStr) {
@@ -281,6 +364,40 @@ function money(value) {
     return parseMoney(value).toFixed(2);
 }
 
+/**
+ * Barra de paginación reutilizable.
+ * @param {number} page         Página actual (1-based)
+ * @param {number} totalPages   Total de páginas
+ * @param {string} goFn         Nombre de la función global invocada con el nº de página
+ * @param {number} pageSize     Tamaño de página actual
+ * @param {string} [pageSizeFn] Nombre de la función global invocada con el nuevo tamaño
+ */
+function renderPagination(page, totalPages, goFn, pageSize, pageSizeFn) {
+    if (!totalPages || totalPages <= 1) return '';
+    const sizes = [10, 25, 50, 100];
+    return `
+        <div class="pagination-bar">
+            ${pageSizeFn ? `
+            <div class="pagination-size">
+                <span class="text-muted">Mostrar</span>
+                <select class="form-control form-control-sm" onchange="${pageSizeFn}(this.value)">
+                    ${sizes.map(s => `<option value="${s}" ${Number(pageSize) === s ? 'selected' : ''}>${s}</option>`).join('')}
+                </select>
+                <span class="text-muted">por página</span>
+            </div>` : '<span></span>'}
+            <div class="pagination-nav">
+                <button class="btn btn-sm btn-outline" onclick="${goFn}(${page - 1})" ${page <= 1 ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-left"></i>
+                </button>
+                <span class="text-muted">Página ${page} de ${totalPages}</span>
+                <button class="btn btn-sm btn-outline" onclick="${goFn}(${page + 1})" ${page >= totalPages ? 'disabled' : ''}>
+                    <i class="fas fa-chevron-right"></i>
+                </button>
+            </div>
+        </div>
+    `;
+}
+
 function getRepartidorId(r) {
     return parseInt(r?.id_repartidor || r?.repartidor_id || r?.id || 0);
 }
@@ -297,3 +414,4 @@ document.addEventListener('click', function (e) {
         document.body.style.overflow = '';
     }
 });
+

@@ -1,15 +1,14 @@
-let historialTab = 'pedidos';
-let historialData = { pedidos: [], despachos: [], controles: [] };
+let historialTab = 'pedidos-rutas';
+let historialData = { pedidos: [], hojas: [] };
+
 let historialMapa = null;
 let historialMapaMarkers = [];
 let historialMapaLinea = null;
 
-const ESTADO_PEDIDO_ENTREGADO = 4;
-const ESTADO_PEDIDO_CANCELADO = 5;
-
 let historialFarmaciaMap = new Map();
-let historialPedidosPage = 1;
-const HISTORIAL_PAGE_SIZE = 50;
+
+// Paginación + filtros de la tabla de trazabilidad (una fila por pedido)
+let historialTablaPagination = { page: 1, pageSize: 25, totalPages: 1, filter: 'all', search: '' };
 
 document.addEventListener('DOMContentLoaded', async function () {
     if (document.getElementById('logistica-content')) return;
@@ -20,7 +19,7 @@ document.addEventListener('DOMContentLoaded', async function () {
 
 function initHistorialModule(containerId = 'page-content') {
     renderPage(containerId);
-    loadTab('pedidos');
+    loadTab('pedidos-rutas');
 }
 
 function renderPage(containerId = 'page-content') {
@@ -31,18 +30,15 @@ function renderPage(containerId = 'page-content') {
             <div class="ops-hero-main">
                 <div class="ops-kicker">Auditoria y trazabilidad</div>
                 <h1 class="ops-title">Historial</h1>
-                <p class="ops-subtitle">Pedidos finalizados, rutas completadas y trazabilidad de cambios.</p>
+                <p class="ops-subtitle">Pedidos, rutas y despachos unificados: sigue la trazabilidad completa de cada pedido.</p>
             </div>
             <div class="ops-actions">
                 <button class="btn btn-outline" onclick="refreshCurrentTab()"><i class="fas fa-rotate"></i> Actualizar</button>
             </div>
         </section>
         <div class="historial-tabs">
-            <button class="historial-tab active" data-tab="pedidos" onclick="switchHistorialTab('pedidos')">
-                <i class="fas fa-box"></i> Pedidos
-            </button>
-            <button class="historial-tab" data-tab="rutas" onclick="switchHistorialTab('rutas')">
-                <i class="fas fa-route"></i> Rutas / Despachos
+            <button class="historial-tab active" data-tab="pedidos-rutas" onclick="switchHistorialTab('pedidos-rutas')">
+                <i class="fas fa-route"></i> Trazabilidad de pedidos
             </button>
             <button class="historial-tab" data-tab="logs" onclick="switchHistorialTab('logs')">
                 <i class="fas fa-list-timeline"></i> Historial de cambios
@@ -51,6 +47,12 @@ function renderPage(containerId = 'page-content') {
         <div id="historial-content"></div>
         <div id="historial-drawer-overlay" class="drawer-overlay" onclick="closeHistorialDrawer()"></div>
         <div id="historial-drawer" class="historial-drawer"></div>
+        <div id="trazabilidad-modal-overlay" class="modal-overlay" onclick="if(event.target===this) closeTrazabilidadModal()">
+            <div id="trazabilidad-modal" class="modal trazabilidad-modal"></div>
+        </div>
+        <div id="despacho-modal-overlay" class="modal-overlay nested" onclick="if(event.target===this) closeDespachoModal()">
+            <div id="despacho-modal" class="modal despacho-modal"></div>
+        </div>
     `;
 }
 
@@ -71,143 +73,115 @@ async function loadTab(tab) {
     const container = document.getElementById('historial-content');
     if (!container) return;
 
-    if (tab === 'pedidos') {
-        await loadPedidosTab(container);
-    } else if (tab === 'rutas') {
-        await loadRutasTab(container);
+    if (tab === 'pedidos-rutas') {
+        await loadPedidosRutasTab(container);
     } else if (tab === 'logs') {
         loadLogsTab(container);
     }
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB A — HISTORIAL DE PEDIDOS
+   TAB — TRAZABILIDAD (una fila por pedido)
    ══════════════════════════════════════════════════════════════ */
 
-async function loadPedidosTab(container) {
+async function loadPedidosRutasTab(container) {
     container.innerHTML = `
         <section class="ops-toolbar">
             <div class="ops-search">
                 <i class="fas fa-search"></i>
-                <input class="form-control" id="historial-pedidos-search" placeholder="Buscar pedido, farmacia o monto" oninput="filterPedidosTable()">
+                <input class="form-control" id="historial-merged-search" placeholder="Buscar pedido, farmacia, ruta o repartidor..." oninput="filterMergedTable()">
             </div>
-            <select class="form-control" id="historial-pedidos-estado" onchange="filterPedidosTable()" style="max-width:200px;">
-                <option value="">Todos los estados</option>
-                <option value="entregado">Entregado</option>
-                <option value="cancelado">Cancelado</option>
-            </select>
+            <div class="segmented-filter" role="group" aria-label="Filtrar por estado">
+                <button class="seg-btn active" data-filter="all" onclick="setHistorialFilter('all')">Todos</button>
+                <button class="seg-btn" data-filter="pendiente" onclick="setHistorialFilter('pendiente')">Pendiente</button>
+                <button class="seg-btn" data-filter="en_ruta" onclick="setHistorialFilter('en_ruta')">En ruta</button>
+                <button class="seg-btn" data-filter="entregado" onclick="setHistorialFilter('entregado')">Entregado</button>
+                <button class="seg-btn" data-filter="cancelado" onclick="setHistorialFilter('cancelado')">Cancelado</button>
+            </div>
         </section>
         <section class="ops-panel">
             <div class="card-header">
-                <h3><i class="fas fa-box"></i> Pedidos finalizados</h3>
-                <span class="text-muted" id="historial-pedidos-count"></span>
+                <h3><i class="fas fa-route"></i> Trazabilidad de pedidos</h3>
+                <span class="text-muted" id="historial-merged-count"></span>
             </div>
-            <div class="card-body" id="historial-pedidos-body">
+            <div class="card-body" id="historial-merged-body">
                 <div class="loading"><div class="spinner"></div>Cargando historial...</div>
             </div>
         </section>
     `;
 
     try {
-        const d = await apiFetch('/pedidos?per_page=200');
-        historialData.pedidos = Array.isArray(d) ? d : (d.data || []);
+        const [pedidos, hojas] = await Promise.all([
+            apiFetch('/pedidos?per_page=-1').catch(() => []),
+            apiFetch('/hojas-ruta?per_page=-1').catch(() => []),
+        ]);
+        historialData.pedidos = Array.isArray(pedidos) ? pedidos : (pedidos.data || []);
+        historialData.hojas = Array.isArray(hojas) ? hojas : (hojas.data || []);
         historialFarmaciaMap = buildFarmaciaMap(historialData.pedidos);
-        historialPedidosPage = 1;
-        renderPedidosTable();
+        historialTablaPagination = { page: 1, pageSize: 25, totalPages: 1, filter: 'all', search: '' };
+        renderMergedTable();
     } catch (e) {
-        document.getElementById('historial-pedidos-body').innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(e.message || 'No se pudieron cargar los pedidos')}</p></div>`;
+        const body = document.getElementById('historial-merged-body');
+        if (body) body.innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(e.message || 'No se pudieron cargar los datos')}</p></div>`;
     }
 }
 
-function renderPedidosTable() {
-    const container = document.getElementById('historial-pedidos-body');
-    const counter = document.getElementById('historial-pedidos-count');
+function setHistorialFilter(filter) {
+    historialTablaPagination.filter = filter;
+    historialTablaPagination.page = 1;
+    document.querySelectorAll('.seg-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.filter === filter);
+    });
+    renderMergedTable();
+}
+
+function goMergedPage(newPage) {
+    historialTablaPagination.page = newPage;
+    renderMergedTable();
+}
+
+function setHistorialPageSize(size) {
+    historialTablaPagination.pageSize = parseInt(size);
+    historialTablaPagination.page = 1;
+    renderMergedTable();
+}
+
+function filterMergedTable() {
+    historialTablaPagination.search = normalize(document.getElementById('historial-merged-search')?.value || '');
+    historialTablaPagination.page = 1;
+    renderMergedTable();
+}
+
+function renderMergedTable() {
+    const container = document.getElementById('historial-merged-body');
+    const counter = document.getElementById('historial-merged-count');
     if (!container) return;
 
-    const finalizados = historialData.pedidos.filter(p => {
-        const est = normalizeHistorial(p.estado?.nombre_estado || p.nombre_estado || p.estado || '');
-        return est.includes('entreg') || est.includes('cancel');
-    });
+    let filtered = buildPedidoRows();
+    const { filter, search } = historialTablaPagination;
 
-    if (counter) counter.textContent = `${finalizados.length} pedidos`;
-
-    if (!finalizados.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-box-open"></i><h4>Sin historial</h4><p>Aun no hay pedidos finalizados o cancelados.</p></div>';
-        return;
+    if (filter !== 'all') {
+        filtered = filtered.filter(i => i.estadoKey === filter);
     }
 
-    const page = historialPedidosPage;
-    const totalPages = Math.ceil(finalizados.length / HISTORIAL_PAGE_SIZE);
-    const start = (page - 1) * HISTORIAL_PAGE_SIZE;
-    const pageItems = finalizados.slice(start, start + HISTORIAL_PAGE_SIZE);
+    if (search) {
+        filtered = filtered.filter(i => normalize(i._search).includes(search));
+    }
 
-    container.innerHTML = `
-        <div class="table-container">
-            <table class="product-detail-table" id="historial-pedidos-table">
-                <thead>
-                    <tr>
-                        <th>Pedido</th>
-                        <th>Farmacia</th>
-                        <th>Monto</th>
-                        <th>Fecha</th>
-                        <th>Estado final</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${pageItems.map(p => `
-                        <tr class="clickable-row" onclick="openPedidoDrawer(${p.id_pedido})">
-                            <td><strong>#${p.id_pedido}</strong></td>
-                            <td>${escapeHtml(p.farmacia?.nombre || getFarmaciaNameHistorial(p.id_farmacia))}</td>
-                            <td>Bs ${parseMoneyHistorial(p.total).toFixed(2)}</td>
-                            <td>${formatDateShort(p.fecha_pedido || p.created_at)}</td>
-                            <td>${getStatusBadge(getEstadoNameHistorial(p))}</td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
-        </div>
-        ${totalPages > 1 ? `
-        <div class="pagination-bar" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;gap:8px;">
-            <button class="btn btn-sm btn-outline" onclick="historialPedidosPage--;renderPedidosTable();" ${page <= 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i> Anterior
-            </button>
-            <span class="text-muted">Pagina ${page} de ${totalPages} (${finalizados.length} registros)</span>
-            <button class="btn btn-sm btn-outline" onclick="historialPedidosPage++;renderPedidosTable();" ${page >= totalPages ? 'disabled' : ''}>
-                Siguiente <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>` : ''}
-    `;
-}
-
-function filterPedidosTable() {
-    historialPedidosPage = 1;
-    const search = normalizeHistorial(document.getElementById('historial-pedidos-search')?.value || '');
-    const estado = document.getElementById('historial-pedidos-estado')?.value || '';
-
-    const filtered = historialData.pedidos.filter(p => {
-        const est = normalizeHistorial(p.estado?.nombre_estado || p.nombre_estado || p.estado || '');
-        if (!est.includes('entreg') && !est.includes('cancel')) return false;
-        if (estado && !est.includes(estado)) return false;
-        if (search) {
-            const text = normalizeHistorial(`${p.id_pedido} ${p.farmacia?.nombre || ''} ${p.total || ''}`);
-            if (!text.includes(search)) return false;
-        }
-        return true;
-    });
-
-    const container = document.getElementById('historial-pedidos-body');
-    const counter = document.getElementById('historial-pedidos-count');
     if (counter) counter.textContent = `${filtered.length} pedidos`;
 
     if (!filtered.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-box-open"></i><h4>Sin resultados</h4><p>No hay pedidos con esos criterios.</p></div>';
+        container.innerHTML = '<div class="empty-state"><i class="fas fa-route"></i><h4>Sin pedidos</h4><p>No hay pedidos con el filtro actual.</p></div>';
         return;
     }
 
-    const page = historialPedidosPage;
-    const totalPages = Math.ceil(filtered.length / HISTORIAL_PAGE_SIZE);
-    const start = (page - 1) * HISTORIAL_PAGE_SIZE;
-    const pageItems = filtered.slice(start, start + HISTORIAL_PAGE_SIZE);
+    const page = historialTablaPagination.page;
+    const pageSize = historialTablaPagination.pageSize;
+    const totalPages = Math.ceil(filtered.length / pageSize) || 1;
+    historialTablaPagination.totalPages = totalPages;
+    if (page > totalPages) { historialTablaPagination.page = totalPages; return renderMergedTable(); }
+    const start = (page - 1) * pageSize;
+    const pageItems = filtered.slice(start, start + pageSize);
 
     container.innerHTML = `
         <div class="table-container">
@@ -216,359 +190,340 @@ function filterPedidosTable() {
                     <tr>
                         <th>Pedido</th>
                         <th>Farmacia</th>
-                        <th>Monto</th>
+                        <th>Estado</th>
+                        <th>Total</th>
                         <th>Fecha</th>
-                        <th>Estado final</th>
+                        <th>Despacho</th>
+                        <th>Ruta / Hoja</th>
+                        <th>Repartidor</th>
+                        <th></th>
                     </tr>
                 </thead>
                 <tbody>
-                    ${pageItems.map(p => `
-                        <tr class="clickable-row" onclick="openPedidoDrawer(${p.id_pedido})">
-                            <td><strong>#${p.id_pedido}</strong></td>
-                            <td>${escapeHtml(p.farmacia?.nombre || getFarmaciaNameHistorial(p.id_farmacia))}</td>
-                            <td>Bs ${parseMoneyHistorial(p.total).toFixed(2)}</td>
-                            <td>${formatDateShort(p.fecha_pedido || p.created_at)}</td>
-                            <td>${getStatusBadge(getEstadoNameHistorial(p))}</td>
+                    ${pageItems.map(item => `
+                        <tr>
+                            <td><strong>#${item.id}</strong></td>
+                            <td>${escapeHtml(item.farmacia)}</td>
+                            <td>${getStatusBadge(item.estado)}</td>
+                            <td>Bs ${money(item.total)}</td>
+                            <td>${item.fecha}</td>
+                            <td>${item.despachoRef ? `#${item.despachoRef} <span class="text-muted">${escapeHtml(item.despachoEstado)}</span>` : '<span class="text-muted">—</span>'}</td>
+                            <td>${item.hojaRef ? `Hoja #${item.hojaRef}` : '<span class="text-muted">—</span>'}</td>
+                            <td>${escapeHtml(item.repartidor || '—')}</td>
+                            <td>
+                                <button class="btn btn-sm btn-outline" onclick="openTrazabilidadModal(${item.id})">
+                                    <i class="fas fa-diagram-project"></i> Ver trazabilidad
+                                </button>
+                            </td>
                         </tr>
                     `).join('')}
                 </tbody>
             </table>
         </div>
-        ${totalPages > 1 ? `
-        <div class="pagination-bar" style="display:flex;justify-content:space-between;align-items:center;padding:12px 0;gap:8px;">
-            <button class="btn btn-sm btn-outline" onclick="historialPedidosPage--;filterPedidosTable();" ${page <= 1 ? 'disabled' : ''}>
-                <i class="fas fa-chevron-left"></i> Anterior
-            </button>
-            <span class="text-muted">Pagina ${page} de ${totalPages} (${filtered.length} registros)</span>
-            <button class="btn btn-sm btn-outline" onclick="historialPedidosPage++;filterPedidosTable();" ${page >= totalPages ? 'disabled' : ''}>
-                Siguiente <i class="fas fa-chevron-right"></i>
-            </button>
-        </div>` : ''}
+        ${renderPagination(page, totalPages, 'goMergedPage', pageSize, 'setHistorialPageSize')}
     `;
 }
 
-async function openPedidoDrawer(pedidoId) {
-    const drawer = document.getElementById('historial-drawer');
-    const overlay = document.getElementById('historial-drawer-overlay');
-    if (!drawer) return;
+function buildPedidoRows() {
+    const hojaPorPedido = new Map();
+    const despachoPorPedido = new Map();
 
-    drawer.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando detalle...</div>';
-    drawer.classList.add('open');
-    overlay.classList.add('active');
+    historialData.hojas.forEach(hoja => {
+        (hoja.detalles || []).forEach(det => {
+            const pid = Number(det.id_pedido);
+            if (!pid) return;
+            if (!hojaPorPedido.has(pid)) hojaPorPedido.set(pid, hoja);
+            const despacho = (det.despachos || [])[0];
+            if (despacho && !despachoPorPedido.has(pid)) despachoPorPedido.set(pid, despacho);
+        });
+    });
 
-    try {
-        const d = await apiFetch(`/pedidos/${pedidoId}`);
-        const pedido = d.pedido || d.data || d;
-        const detalles = pedido.detalles || [];
-        const totalSolicitado = detalles.reduce((s, d) => s + (parseMoneyHistorial(d.cantidad_solicitada) * parseMoneyHistorial(d.precio_unitario)), 0) || parseMoneyHistorial(pedido.total);
-        const totalEntregado = detalles.reduce((s, d) => s + (Math.min(parseMoneyHistorial(d.cantidad_entregada), parseMoneyHistorial(d.cantidad_solicitada)) * parseMoneyHistorial(d.precio_unitario)), 0);
+    return historialData.pedidos.map(p => {
+        const id = Number(p.id_pedido);
+        const hoja = hojaPorPedido.get(id) || null;
+        const despacho = despachoPorPedido.get(id) || null;
+        const farmacia = p.farmacia?.nombre || getFarmaciaNameHistorial(p.id_farmacia);
+        const estado = getEstadoNameHistorial(p);
+        const despachoEstado = despacho ? estadoLabelHistorial(despacho.estado_despacho) : '';
+        const repartidor = hoja ? getRepartidorNombreHistorial(hoja.repartidor) : '';
 
-        drawer.innerHTML = `
-            <div class="historial-drawer-header">
-                <h3>Pedido #${pedido.id_pedido}</h3>
-                <button class="modal-close" onclick="closeHistorialDrawer()">&times;</button>
-            </div>
-            <div class="historial-drawer-body">
-                <div class="info-grid">
-                    <div><strong>Farmacia:</strong> ${escapeHtml(pedido.farmacia?.nombre || getFarmaciaNameHistorial(pedido.id_farmacia))}</div>
-                    <div><strong>Estado:</strong> ${getStatusBadge(getEstadoNameHistorial(pedido))}</div>
-                    <div><strong>Fecha:</strong> ${formatDate(pedido.fecha_pedido || pedido.created_at)}</div>
-                    <div><strong>Total:</strong> Bs ${parseMoneyHistorial(pedido.total).toFixed(2)}</div>
-                    <div><strong>Entregado:</strong> Bs ${totalEntregado.toFixed(2)}</div>
-                    <div><strong>Faltante:</strong> Bs ${(totalSolicitado - totalEntregado).toFixed(2)}</div>
-                </div>
-                ${pedido.observaciones ? `<div class="historial-section"><strong>Observaciones:</strong><p>${escapeHtml(pedido.observaciones)}</p></div>` : ''}
-                ${pedido.despacho ? `
-                <div class="historial-section">
-                    <h4><i class="fas fa-truck"></i> Despacho asociado</h4>
-                    <div class="info-grid">
-                        <div><strong>Despacho:</strong> #${pedido.despacho.id_despacho}</div>
-                        <div><strong>Repartidor:</strong> ${escapeHtml(pedido.despacho.repartidor?.nombre || '—')}</div>
-                        <div><strong>Hora despacho:</strong> ${formatDateTime(pedido.despacho.fecha_hora_despacho)}</div>
-                        <div><strong>Hora entrega:</strong> ${pedido.despacho.fecha_entrega ? formatDateTime(pedido.despacho.fecha_entrega) : '—'}</div>
-                    </div>
-                </div>` : ''}
-                <div class="historial-section">
-                    <h4>Productos</h4>
-                    ${detalles.length ? `
-                        <table class="product-detail-table">
-                            <thead>
-                                <tr>
-                                    <th>Producto</th>
-                                    <th>Solicitado</th>
-                                    <th>Entregado</th>
-                                    <th>Precio</th>
-                                    <th>Subtotal</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${detalles.map(d => {
-                                    const sol = parseMoneyHistorial(d.cantidad_solicitada);
-                                    const ent = parseMoneyHistorial(d.cantidad_entregada);
-                                    const pr = parseMoneyHistorial(d.precio_unitario);
-                                    return `<tr>
-                                        <td>${escapeHtml(d.producto?.nombre || '—')}</td>
-                                        <td>${sol}</td>
-                                        <td>${ent}</td>
-                                        <td>Bs ${pr.toFixed(2)}</td>
-                                        <td>Bs ${(Math.min(ent, sol) * pr).toFixed(2)}</td>
-                                    </tr>`;
-                                }).join('')}
-                            </tbody>
-                        </table>
-                    ` : '<p class="text-muted">Sin productos registrados.</p>'}
-                </div>
-            </div>
-        `;
-    } catch (e) {
-        drawer.innerHTML = `
-            <div class="historial-drawer-header">
-                <h3>Error</h3>
-                <button class="modal-close" onclick="closeHistorialDrawer()">&times;</button>
-            </div>
-            <div class="historial-drawer-body">
-                <div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(e.message || 'No se pudo cargar el detalle')}</p></div>
-            </div>
-        `;
-    }
-}
-
-function closeHistorialDrawer() {
-    const drawer = document.getElementById('historial-drawer');
-    const overlay = document.getElementById('historial-drawer-overlay');
-    if (drawer) drawer.classList.remove('open');
-    if (overlay) overlay.classList.remove('active');
+        return {
+            id,
+            pedido: p,
+            farmacia,
+            estado,
+            estadoKey: getColumnKeyHistorial(p),
+            total: parseMoneyHistorial(p.total),
+            fecha: formatDateShort(p.fecha_pedido || p.created_at),
+            fechaOrden: new Date(p.fecha_pedido || p.created_at || 0).getTime() || 0,
+            despachoRef: despacho?.id_despacho || null,
+            despachoEstado,
+            hojaRef: hoja?.id_hoja_ruta || null,
+            repartidor,
+            _search: `${id} ${farmacia} ${estado} ${hoja?.id_hoja_ruta || ''} ${repartidor}`,
+        };
+    }).sort((a, b) => b.fechaOrden - a.fechaOrden);
 }
 
 /* ══════════════════════════════════════════════════════════════
-   TAB B — HISTORIAL DE RUTAS / DESPACHOS
+   MODAL DE TRAZABILIDAD (2 columnas)
+   Izquierda: Pedido -> Despacho -> Transporte
+   Derecha:   Paradas -> Mapa -> Evidencias
    ══════════════════════════════════════════════════════════════ */
 
-async function loadRutasTab(container) {
-    container.innerHTML = `
-        <section class="ops-toolbar">
-            <div class="ops-search">
-                <i class="fas fa-search"></i>
-                <input class="form-control" id="historial-rutas-search" placeholder="Buscar por repartidor o codigo de ruta" oninput="filterRutasTable()">
-            </div>
-        </section>
-        <section class="historial-rutas-layout">
-            <div class="ops-panel" style="overflow:auto;">
-                <div class="card-header">
-                    <h3><i class="fas fa-route"></i> Rutas y despachos</h3>
-                    <span class="text-muted" id="historial-rutas-count"></span>
-                </div>
-                <div class="card-body" id="historial-rutas-body">
-                    <div class="loading"><div class="spinner"></div>Cargando historial...</div>
-                </div>
-            </div>
-            <div class="ops-panel" id="historial-ruta-mapa-panel" style="display:none;">
-                <div class="card-header">
-                    <h3><i class="fas fa-map"></i> Ruta historica</h3>
-                    <span class="text-muted" id="historial-ruta-selected"></span>
-                </div>
-                <div class="card-body" style="padding:0;">
-                    <div id="historial-ruta-mapa" style="height:400px;"></div>
-                    <div id="historial-ruta-paradas" style="padding:12px;max-height:200px;overflow-y:auto;"></div>
-                </div>
-            </div>
-        </section>
-    `;
+async function openTrazabilidadModal(pedidoId) {
+    const modal = document.getElementById('trazabilidad-modal');
+    const overlay = document.getElementById('trazabilidad-modal-overlay');
+    if (!modal) return;
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    if (overlay) { overlay.classList.add('active'); overlay.style.display = 'flex'; }
+    document.body.style.overflow = 'hidden';
+    modal.innerHTML = '<div class="loading" style="padding:40px;"><div class="spinner"></div>Cargando trazabilidad...</div>';
 
     try {
-        const [despachos, controles] = await Promise.all([
-            apiFetch('/despachos?per_page=100').catch(() => []),
-            apiFetch('/hojas-ruta?per_page=100').catch(() => []),
-        ]);
-        historialData.despachos = Array.isArray(despachos) ? despachos : (despachos.data || []);
-        historialData.controles = Array.isArray(controles) ? controles : (controles.data || []);
-        renderRutasTable();
+        await renderTrazabilidadModal(modal, pedidoId);
     } catch (e) {
-        document.getElementById('historial-rutas-body').innerHTML = `<div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(e.message || 'No se pudieron cargar los datos')}</p></div>`;
+        modal.innerHTML = renderModalError('trazabilidad-modal', e.message || 'No se pudo cargar la trazabilidad');
     }
 }
 
-function renderRutasTable() {
-    const container = document.getElementById('historial-rutas-body');
-    const counter = document.getElementById('historial-rutas-count');
-    if (!container) return;
+function openHistorialDrawer(pedidoId) {
+    return openTrazabilidadModal(pedidoId);
+}
 
-    const items = buildRutasList();
-    if (counter) counter.textContent = `${items.length} registros`;
+async function renderTrazabilidadModal(modal, pedidoId) {
+    const pedidoResp = await apiFetch(`/pedidos/${pedidoId}`);
+    const pedido = pedidoResp.pedido || pedidoResp.data || pedidoResp;
 
-    if (!items.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-route"></i><h4>Sin historial</h4><p>No hay rutas o despachos registrados.</p></div>';
-        return;
+    let hojaRutaId = pedido.despacho?.hoja_ruta_detalle?.id_hoja_ruta
+        || pedido.despacho?.hojaRutaDetalle?.id_hoja_ruta
+        || findHojaRutaIdForPedido(pedidoId);
+
+    let hoja = null;
+    if (hojaRutaId) {
+        const hojaResp = await apiFetch(`/hojas-ruta/${hojaRutaId}`).catch(() => null);
+        hoja = hojaResp ? (hojaResp.hoja_ruta || hojaResp.data || hojaResp) : null;
     }
 
-    container.innerHTML = `
-        <div class="table-container">
-            <table class="product-detail-table">
-                <thead>
-                    <tr>
-                        <th>Tipo</th>
-                        <th>Referencia</th>
-                        <th>Pedido</th>
-                        <th>Ruta</th>
-                        <th>Repartidor</th>
-                        <th>Hora salida</th>
-                        <th>Hora llegada</th>
-                        <th>Estado</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${items.map((item, idx) => `
-                        <tr>
-                            <td><span class="badge ${item.tipo === 'Ruta' ? 'badge-info' : 'badge-primary'}">${item.tipo}</span></td>
-                            <td><strong>${item.ref}</strong></td>
-                            <td><strong>${item.pedidoRef || '—'}</strong></td>
-                            <td>${escapeHtml(item.rutaNombre || '—')}</td>
-                            <td>${escapeHtml(item.repartidor || '—')}</td>
-                            <td>${item.horaSalida || '—'}</td>
-                            <td>${item.horaLlegada || '—'}</td>
-                            <td>${getStatusBadge(item.estado)}</td>
-                            <td>
-                                ${item._tipo === 'despacho'
-                                    ? `<button class="btn btn-sm btn-outline" onclick="openDespachoDrawer(${item._data.id_despacho})">
-                                        <i class="fas fa-clipboard-list"></i> Ver detalle
-                                    </button>`
-                                    : `<button class="btn btn-sm btn-outline" onclick="showRutaMapa(${idx})">
-                                        <i class="fas fa-map"></i> Ver ruta
-                                    </button>`
-                                }
-                            </td>
-                        </tr>
-                    `).join('')}
-                </tbody>
-            </table>
+    const detalles = hoja?.detalles || [];
+    const repartidor = hoja ? getRepartidorNombreHistorial(hoja.repartidor) : '';
+    const vehiculo = hoja?.vehiculo?.placa || hoja?.vehiculo?.marca || '—';
+    const llegada = hoja?.hora_llegada || '';
+    const salida = (() => {
+        if (!hoja) return '';
+        const fecha = hoja.fecha ? formatDate(hoja.fecha) : '';
+        const hora = hoja.hora_salida || '';
+        return `${fecha} ${hora}`.trim();
+    })();
+    const fechaRuta = hoja?.fecha ? formatDate(hoja.fecha) : '';
+
+    modal.innerHTML = `
+        <div class="modal-header">
+            <h3><i class="fas fa-route"></i> Trazabilidad del pedido #${pedido.id_pedido}</h3>
+            <button class="modal-close" onclick="closeTrazabilidadModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="trazabilidad-header">
+                <div><strong>Hoja de ruta</strong><span>#${hoja?.id_hoja_ruta || '—'}</span></div>
+                <div><strong>Repartidor</strong><span>${escapeHtml(repartidor || '—')}</span></div>
+                <div><strong>Vehículo</strong><span>${escapeHtml(vehiculo)}</span></div>
+                <div><strong>Estado de ruta</strong><span>${hoja ? getStatusBadge(estadoLabelHistorial(hoja.estado_ruta || '')) : '—'}</span></div>
+                <div><strong>Fecha</strong><span>${fechaRuta || '—'}</span></div>
+                <div><strong>Salida</strong><span>${salida || '—'}</span></div>
+                <div><strong>Llegada</strong><span>${llegada ? formatDateTime(llegada) : '—'}</span></div>
+            </div>
+
+            <div class="historial-section">
+                <h4><i class="fas fa-map-pin"></i> Itinerario completo - ${detalles.length} parada(s)</h4>
+                ${detalles.length ? `
+                    <div class="paradas-table-wrapper">
+                        <table class="paradas-table">
+                            <thead>
+                                <tr>
+                                    <th>#</th>
+                                    <th>Farmacia</th>
+                                    <th>Pedido</th>
+                                    <th>Estado Pedido</th>
+                                    <th>Despacho</th>
+                                    <th>Estado Despacho</th>
+                                    <th>Acciones</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${detalles.map((det, idx) => {
+                                    const pedidoDet = det.pedido || {};
+                                    const farmacia = pedidoDet.farmacia || {};
+                                    const despachoDet = (det.despachos || [])[0] || null;
+                                    const esActual = Number(pedidoDet.id_pedido) === Number(pedidoId);
+                                    const estadoDet = estadoLabelHistorial(despachoDet?.estado_despacho || despachoDet?.estado || 'pendiente');
+                                    return `
+                                        <tr class="${esActual ? 'current' : ''}">
+                                            <td>${idx + 1}</td>
+                                            <td><strong>${escapeHtml(farmacia.nombre || 'Farmacia')}</strong>${esActual ? ' <span class="badge badge-primary">Este pedido</span>' : ''}</td>
+                                            <td>#${pedidoDet.id_pedido || '—'}</td>
+                                            <td>${getStatusBadge(getEstadoNameHistorial(pedidoDet))}</td>
+                                            <td>${despachoDet ? `#${despachoDet.id_despacho}` : '—'}</td>
+                                            <td>${despachoDet ? getStatusBadge(estadoLabelHistorial(despachoDet.estado_despacho || despachoDet.estado || '')) : '—'}</td>
+                                            <td>
+                                                ${despachoDet ? `<button class="btn btn-sm btn-outline" onclick='openDespachoModal(${JSON.stringify(serializeDespacho(despachoDet, det, pedidoDet, farmacia, idx + 1)).replace(/'/g, "\\'")})'><i class="fas fa-truck-fast"></i> Ver despacho asociado</button>` : '<span class="text-muted">Sin despacho</span>'}
+                                            </td>
+                                        </tr>
+                                    `;
+                                }).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : '<p class="text-muted">Sin paradas registradas.</p>'}
+            </div>
+
+            <div class="historial-section">
+                <h4><i class="fas fa-map"></i> Mapa de la ruta</h4>
+                ${detalles.length ? '<div id="historial-traz-mapa"></div>' : '<p class="text-muted">Sin ubicaciones para mostrar.</p>'}
+            </div>
+        </div>
+    `;
+
+    if (detalles.length) {
+        setTimeout(() => initHistorialMapa(detalles, pedidoId), 120);
+    }
+}
+
+function serializeDespacho(despachoDet, det, pedidoDet, farmacia, orden) {
+    return {
+        despacho: despachoDet,
+        detalle: det,
+        pedido: pedidoDet,
+        farmacia: farmacia,
+        orden: orden
+    };
+}
+
+function openDespachoModal(data) {
+    const modal = document.getElementById('despacho-modal');
+    const overlay = document.getElementById('despacho-modal-overlay');
+    if (!modal) return;
+
+    const despacho = data.despacho || {};
+    const pedido = data.pedido || {};
+    const farmacia = data.farmacia || {};
+
+    const evidencias = despacho.evidencias || [];
+    const llegada = despacho.hora_llegada || '';
+
+    modal.classList.add('active');
+    modal.style.display = 'flex';
+    if (overlay) {
+        overlay.classList.add('active');
+        overlay.style.display = 'flex';
+    }
+    document.body.style.overflow = 'hidden';
+
+    modal.innerHTML = `
+        <div class="modal-header">
+            <h3><i class="fas fa-truck-fast"></i> Despacho #${despacho.id_despacho || '—'} - ${escapeHtml(farmacia.nombre || 'Farmacia')}</h3>
+            <button class="modal-close" onclick="closeDespachoModal()">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="historial-section">
+                <h4><i class="fas fa-box"></i> Datos del despacho</h4>
+                <div class="info-grid">
+                    <div><strong>Despacho</strong><span>#${despacho.id_despacho || '—'}</span></div>
+                    <div><strong>Pedido</strong><span>#${pedido.id_pedido || '—'}</span></div>
+                    <div><strong>Farmacia</strong><span>${escapeHtml(farmacia.nombre || '—')}</span></div>
+                    <div><strong>Estado</strong><span>${despacho.estado_despacho ? getStatusBadge(estadoLabelHistorial(despacho.estado_despacho)) : '—'}</span></div>
+                    <div><strong>Hora salida</strong><span>${formatDateTime(despacho.fecha_hora_despacho)}</span></div>
+                    <div><strong>Hora llegada</strong><span>${llegada ? formatDateTime(llegada) : '—'}</span></div>
+                    <div><strong>Monto recibido</strong><span>${despacho.monto_recibido ? 'Bs ' + parseMoneyHistorial(despacho.monto_recibido).toFixed(2) : '—'}</span></div>
+                    <div><strong>Método de pago</strong><span>${escapeHtml(despacho.metodo_pago || '—')}</span></div>
+                </div>
+            </div>
+
+            <div class="historial-section">
+                <h4><i class="fas fa-list-timeline"></i> Timeline</h4>
+                <div class="timeline">
+                    <div class="timeline-item success">
+                        <div class="timeline-content">
+                            <strong>Despachado</strong>
+                            <small>${formatDateTime(despacho.fecha_hora_despacho)}</small>
+                        </div>
+                    </div>
+                    ${(despacho.estado_despacho === 'entregado' || llegada) ? `
+                    <div class="timeline-item success">
+                        <div class="timeline-content">
+                            <strong>Entregado</strong>
+                            <small>${llegada ? formatDateTime(llegada) : 'Con registro de entrega'}</small>
+                        </div>
+                    </div>` : `
+                    <div class="timeline-item warning">
+                        <div class="timeline-content">
+                            <strong>${despacho.estado_despacho === 'incidencia' ? 'Incidencia reportada' : 'Pendiente de entrega'}</strong>
+                            <small>Sin registro de llegada</small>
+                        </div>
+                    </div>`}
+                </div>
+            </div>
+
+            <div class="historial-section">
+                <h4><i class="fas fa-camera"></i> Evidencias de entrega</h4>
+                ${evidencias.length ? `
+                    <div class="evidencias-grid">
+                        ${evidencias.map(ev => {
+                            const archivo = ev.archivo || '';
+                            const url = archivo ? (archivo.startsWith('http') ? archivo : `${API_URL.replace('/api', '')}/storage/${archivo}`) : null;
+                            return `
+                                <div class="evidencia-item">
+                                    ${url ? `<a href="${url}" target="_blank"><img src="${url}" alt="Evidencia" loading="lazy"></a>` : '<div class="evidencia-placeholder">Sin imagen</div>'}
+                                    <div class="evidencia-info">
+                                        <strong>${escapeHtml(estadoLabelHistorial(ev.tipo_evidencia || 'Evidencia'))}</strong>
+                                        <div class="text-muted">${formatDate(ev.created_at)}</div>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                ` : '<p class="text-muted">Sin evidencias registradas para este despacho.</p>'}
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button class="btn btn-secondary" onclick="closeDespachoModal()">Cerrar</button>
         </div>
     `;
 }
 
-function buildRutasList() {
-    const items = [];
+function renderEvidencias(detalles, pedidoId, hoja) {
+    const detalleActual = detalles.find(det => Number(det.pedido?.id_pedido) === Number(pedidoId));
+    let evidencias = (detalleActual?.despachos || []).flatMap(d => d.evidencias || []);
 
-    historialData.controles.forEach(c => {
-        items.push({
-            tipo: 'Ruta',
-            ref: `Control #${c.id_control_ruta}`,
-            repartidor: c.repartidor?.nombre || '',
-            vehiculo: c.vehiculo?.placa || '',
-            estado: c.estado?.nombre_estado || c.estado || 'Completado',
-            fecha: c.fecha_salida || c.hora_salida || c.created_at,
-            _data: c,
-            _tipo: 'control',
-        });
-    });
-
-    historialData.despachos.forEach(d => {
-        const pedido = d.pedido || {};
-        const controlRuta = d.control_ruta || {};
-        items.push({
-            tipo: 'Despacho',
-            ref: `Despacho #${d.id_despacho}`,
-            pedidoRef: pedido.id_pedido ? `#${pedido.id_pedido}` : (d.id_pedido ? `#${d.id_pedido}` : '—'),
-            rutaNombre: controlRuta.ruta?.nombre_ruta || d.nombre_ruta || '—',
-            repartidor: d.repartidor?.nombre || '',
-            vehiculo: d.vehiculo?.placa || '',
-            horaSalida: d.fecha_hora_despacho ? formatDateTime(d.fecha_hora_despacho) : '—',
-            horaLlegada: d.fecha_entrega ? formatDateTime(d.fecha_entrega) : '—',
-            estado: d.estado?.nombre_estado || d.estado || 'Finalizado',
-            fecha: d.fecha_despacho || d.created_at,
-            _data: d,
-            _tipo: 'despacho',
-        });
-    });
-
-    items.sort((a, b) => new Date(b.fecha) - new Date(a.fecha));
-    return items;
-}
-
-function filterRutasTable() {
-    const search = normalizeHistorial(document.getElementById('historial-rutas-search')?.value || '');
-    const allItems = buildRutasList();
-    const filtered = search ? allItems.filter(i => {
-        const text = normalizeHistorial(`${i.ref} ${i.repartidor} ${i.vehiculo} ${i.estado}`);
-        return text.includes(search);
-    }) : allItems;
-
-    const container = document.getElementById('historial-rutas-body');
-    const counter = document.getElementById('historial-rutas-count');
-    if (counter) counter.textContent = `${filtered.length} registros`;
-
-    if (!filtered.length) {
-        container.innerHTML = '<div class="empty-state"><i class="fas fa-route"></i><h4>Sin resultados</h4><p>No hay registros con ese criterio.</p></div>';
-        return;
+    if (!evidencias.length && hoja) {
+        evidencias = detalles.flatMap(det => (det.despachos || []).flatMap(d => d.evidencias || []));
     }
 
-    container.innerHTML = `
-        <div class="table-container">
-            <table class="product-detail-table">
-                <thead>
-                    <tr>
-                        <th>Tipo</th>
-                        <th>Referencia</th>
-                        <th>Pedido</th>
-                        <th>Ruta</th>
-                        <th>Repartidor</th>
-                        <th>Hora salida</th>
-                        <th>Hora llegada</th>
-                        <th>Estado</th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    ${filtered.map((item, idx) => {
-                        const originalIdx = allItems.indexOf(item);
-                        return `<tr>
-                            <td><span class="badge ${item.tipo === 'Ruta' ? 'badge-info' : 'badge-primary'}">${item.tipo}</span></td>
-                            <td><strong>${item.ref}</strong></td>
-                            <td><strong>${item.pedidoRef || '—'}</strong></td>
-                            <td>${escapeHtml(item.rutaNombre || '—')}</td>
-                            <td>${escapeHtml(item.repartidor || '—')}</td>
-                            <td>${item.horaSalida || '—'}</td>
-                            <td>${item.horaLlegada || '—'}</td>
-                            <td>${getStatusBadge(item.estado)}</td>
-                            <td>
-                                ${item._tipo === 'despacho'
-                                    ? `<button class="btn btn-sm btn-outline" onclick="openDespachoDrawer(${item._data.id_despacho})">
-                                        <i class="fas fa-clipboard-list"></i> Ver detalle
-                                    </button>`
-                                    : `<button class="btn btn-sm btn-outline" onclick="showRutaMapa(${originalIdx})">
-                                        <i class="fas fa-map"></i> Ver ruta
-                                    </button>`
-                                }
-                            </td>
-                        </tr>`;
-                    }).join('')}
-                </tbody>
-            </table>
+    if (!evidencias.length) return '<p class="text-muted">Sin evidencias registradas.</p>';
+
+    return `
+        <div class="evidencias-grid">
+            ${evidencias.map(ev => {
+                const archivo = ev.archivo || '';
+                const url = archivo
+                    ? (archivo.startsWith('http') ? archivo : `${API_URL.replace('/api', '')}/storage/${archivo}`)
+                    : null;
+                return `<div class="evidencia-item">
+                    ${url ? `<a href="${url}" target="_blank"><img src="${url}" alt="Evidencia" loading="lazy"></a>` : '<div class="evidencia-placeholder">Sin imagen</div>'}
+                    <div class="evidencia-info">
+                        <strong>${escapeHtml(estadoLabelHistorial(ev.tipo_evidencia || 'Evidencia'))}</strong>
+                        <div class="text-muted">${formatDate(ev.created_at)}</div>
+                    </div>
+                </div>`;
+            }).join('')}
         </div>
     `;
 }
 
-async function showRutaMapa(idx) {
-    const items = buildRutasList();
-    const item = items[idx];
-    if (!item) return;
-
-    const panel = document.getElementById('historial-ruta-mapa-panel');
-    const label = document.getElementById('historial-ruta-selected');
-    if (panel) panel.style.display = '';
-    if (label) label.textContent = item.ref;
-
-    const paradasContainer = document.getElementById('historial-ruta-paradas');
-    if (paradasContainer) {
-        if (item._tipo === 'control') {
-            paradasContainer.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando paradas...</div>';
-        } else {
-            paradasContainer.innerHTML = '<p class="text-muted">Sin datos de ruta para este despacho.</p>';
-        }
-    }
-
-    const mapContainer = document.getElementById('historial-ruta-mapa');
-    if (!mapContainer) return;
+function initHistorialMapa(detalles, pedidoId) {
+    const mapContainer = document.getElementById('historial-traz-mapa');
+    if (!mapContainer || typeof L === 'undefined') return;
 
     if (historialMapa) {
         historialMapa.remove();
@@ -577,238 +532,107 @@ async function showRutaMapa(idx) {
     historialMapaMarkers = [];
     historialMapaLinea = null;
 
-    historialMapa = L.map('historial-ruta-mapa').setView([-16.4897, -67.8217], 12);
+    historialMapa = L.map('historial-traz-mapa').setView([-16.4897, -67.8217], 12);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
         attribution: '&copy; OpenStreetMap contributors'
     }).addTo(historialMapa);
 
-    setTimeout(() => historialMapa.invalidateSize(), 200);
+    setTimeout(() => { if (historialMapa) historialMapa.invalidateSize(); }, 200);
 
-    if (item._tipo === 'control') {
-        await loadRutaParadasMapa(item._data.id_control_ruta);
+    const coords = [];
+    detalles.forEach((det, idx) => {
+        const pedido = det.pedido || {};
+        const farmacia = pedido.farmacia || {};
+        const lat = numeroFinito(farmacia.latitud);
+        const lng = numeroFinito(farmacia.longitud);
+        if (lat === null || lng === null) return;
+        if (lat < -90 || lat > 90 || lng < -180 || lng > 180) return;
+
+        coords.push([lat, lng]);
+        const despacho = (det.despachos || [])[0] || {};
+        const estadoEntrega = estadoLabelHistorial(despacho.estado_despacho || despacho.estado || 'pendiente');
+        const est = normalize(estadoEntrega);
+        const esActual = Number(pedido.id_pedido) === Number(pedidoId);
+        const color = esActual ? '#2563eb'
+            : est.includes('entreg') ? '#10b981'
+            : (est.includes('incidencia') || est.includes('fall') || est.includes('cancel')) ? '#ef4444'
+            : '#64748b';
+
+        const marker = L.circleMarker([lat, lng], {
+            radius: esActual ? 10 : 7,
+            fillColor: color,
+            color: '#fff',
+            weight: 2,
+            fillOpacity: 0.9,
+        }).addTo(historialMapa);
+        marker.bindPopup(`<b>${idx + 1}. ${escapeHtml(farmacia.nombre || 'Parada')}</b><br>Pedido #${pedido.id_pedido || '—'}<br>Estado: ${escapeHtml(estadoEntrega)}`);
+        historialMapaMarkers.push(marker);
+    });
+
+    if (coords.length > 1) {
+        historialMapaLinea = L.polyline(coords, {
+            color: '#64748b',
+            weight: 3,
+            opacity: 0.6,
+            dashArray: '8, 8',
+        }).addTo(historialMapa);
+        const boundsLinea = historialMapaLinea.getBounds();
+        if (boundsLinea.isValid()) {
+            historialMapa.fitBounds(boundsLinea, { padding: [40, 40], animate: false });
+        }
+    } else if (coords.length === 1) {
+        historialMapa.setView(coords[0], 14);
     }
 }
 
-async function loadRutaParadasMapa(controlId) {
-    try {
-        const d = await apiFetch(`/controles-ruta/${controlId}`);
-        const control = d.control_ruta || d.data || d;
-        const paradas = control.paradas || control.despachos || [];
-
-        const paradasContainer = document.getElementById('historial-ruta-paradas');
-
-        const coords = [];
-        paradas.forEach((p, idx) => {
-            const lat = parseFloat(p.latitud || p.farmacia?.latitud);
-            const lng = parseFloat(p.longitud || p.farmacia?.longitud);
-            if (isNaN(lat) || isNaN(lng)) return;
-
-            coords.push([lat, lng]);
-            const estado = normalizeHistorial(p.estado?.nombre_estado || p.estado || '');
-            const color = estado.includes('entreg') ? '#10b981'
-                : estado.includes('fall') || estado.includes('cancel') ? '#ef4444'
-                : '#64748b';
-
-            const marker = L.circleMarker([lat, lng], {
-                radius: 8,
-                fillColor: color,
-                color: '#fff',
-                weight: 2,
-                fillOpacity: 0.9,
-            }).addTo(historialMapa);
-            marker.bindPopup(`<b>${escapeHtml(p.farmacia?.nombre || p.nombre_farmacia || 'Parada')}</b><br>Estado: ${escapeHtml(estado || 'Pendiente')}`);
-            historialMapaMarkers.push(marker);
-        });
-
-        if (coords.length > 1) {
-            historialMapaLinea = L.polyline(coords, {
-                color: '#64748b',
-                weight: 3,
-                opacity: 0.6,
-                dashArray: '8, 8',
-            }).addTo(historialMapa);
-            historialMapa.fitBounds(historialMapaLinea.getBounds(), { padding: [40, 40], animate: false });
-        } else if (coords.length === 1) {
-            historialMapa.setView(coords[0], 14);
-        }
-
-        if (paradasContainer) {
-            if (!paradas.length) {
-                paradasContainer.innerHTML = '<p class="text-muted">Sin paradas registradas para esta ruta.</p>';
-            } else {
-                paradasContainer.innerHTML = paradas.map((p, idx) => {
-                    const est = normalizeHistorial(p.estado?.nombre_estado || p.estado || 'Pendiente');
-                    const icon = est.includes('entreg') ? 'fa-check-circle' : est.includes('fall') || est.includes('cancel') ? 'fa-times-circle' : 'fa-circle';
-                    const color = est.includes('entreg') ? '#10b981' : est.includes('fall') || est.includes('cancel') ? '#ef4444' : '#64748b';
-                    return `<div style="display:flex;align-items:center;gap:8px;padding:4px 0;">
-                        <i class="fas ${icon}" style="color:${color};width:16px;"></i>
-                        <span>${idx + 1}. ${escapeHtml(p.farmacia?.nombre || p.nombre_farmacia || 'Parada')}</span>
-                        <span class="text-muted" style="margin-left:auto;">${escapeHtml(est)}</span>
-                    </div>`;
-                }).join('');
-            }
-        }
-    } catch (e) {
-        const paradasContainer = document.getElementById('historial-ruta-paradas');
-        if (paradasContainer) paradasContainer.innerHTML = `<p class="text-muted">No se pudieron cargar las paradas: ${escapeHtml(e.message || '')}</p>`;
+function closeTrazabilidadModal() {
+    const modal = document.getElementById('trazabilidad-modal');
+    const overlay = document.getElementById('trazabilidad-modal-overlay');
+    if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
+    if (overlay) { overlay.classList.remove('active'); overlay.style.display = 'none'; }
+    if (historialMapa) {
+        historialMapa.remove();
+        historialMapa = null;
+        historialMapaMarkers = [];
+        historialMapaLinea = null;
     }
+    closeDespachoModal();
+    document.body.style.overflow = '';
+}
+
+function closeDespachoModal() {
+    const modal = document.getElementById('despacho-modal');
+    const overlay = document.getElementById('despacho-modal-overlay');
+    if (modal) { modal.classList.remove('active'); modal.style.display = 'none'; }
+    if (overlay) { overlay.classList.remove('active'); overlay.style.display = 'none'; }
+    const trazModal = document.getElementById('trazabilidad-modal');
+    if (!trazModal || !trazModal.classList.contains('active')) {
+        document.body.style.overflow = '';
+    }
+}
+
+function closeHistorialDrawer() {
+    closeTrazabilidadModal();
+}
+
+function renderDrawerError(message) {
+    return renderModalError('trazabilidad-modal', message);
+}
+
+function renderModalError(modalId, message) {
+    return `
+        <div class="modal-header">
+            <h3>Error</h3>
+            <button class="modal-close" onclick="document.getElementById('${modalId}').classList.remove('active'); document.getElementById('${modalId}').style.display='none'; document.getElementById('${modalId}-overlay')?.classList.remove('active'); document.getElementById('${modalId}-overlay').style.display='none'; document.body.style.overflow='';">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(message)}</p></div>
+        </div>
+    `;
 }
 
 /* ══════════════════════════════════════════════════════════════
-   DESPACHO DETAIL — INCIDENCIAS & EVIDENCIAS
-   ══════════════════════════════════════════════════════════════ */
-
-async function openDespachoDrawer(despachoId) {
-    const drawer = document.getElementById('historial-drawer');
-    const overlay = document.getElementById('historial-drawer-overlay');
-    if (!drawer) return;
-
-    drawer.innerHTML = '<div class="loading"><div class="spinner"></div>Cargando detalle del despacho...</div>';
-    drawer.classList.add('open');
-    overlay.classList.add('active');
-
-    try {
-        const [despachoResp, incidenciasResp, evidenciasResp] = await Promise.all([
-            apiFetch(`/despachos/${despachoId}`).catch(() => ({})),
-            apiFetch(`/despachos/${despachoId}/incidencias`).catch(() => []),
-            apiFetch(`/despachos/${despachoId}/evidencias`).catch(() => []),
-        ]);
-
-        const despacho = despachoResp.despacho || despachoResp.data || despachoResp;
-        const incidencias = Array.isArray(incidenciasResp) ? incidenciasResp : (incidenciasResp.data || []);
-        const evidencias = Array.isArray(evidenciasResp) ? evidenciasResp : (evidenciasResp.data || []);
-
-        const pedidoRef = despacho.pedido ? `#${despacho.pedido.id_pedido || despacho.id_pedido}` : `#${despacho.id_pedido || '?'}`;
-        const repartidorNombre = despacho.repartidor?.nombre || despacho.nombre_repartidor || '—';
-        const vehiculoPlaca = despacho.vehiculo?.placa || despacho.placa_vehiculo || '—';
-        const estadoNombre = despacho.estado?.nombre_estado || despacho.nombre_estado || '—';
-        const fecha = formatDate(despacho.fecha_hora_despacho || despacho.fecha_despacho || despacho.created_at);
-
-        drawer.innerHTML = `
-            <div class="historial-drawer-header">
-                <h3>Despacho #${despachoId}</h3>
-                <button class="modal-close" onclick="closeHistorialDrawer()">&times;</button>
-            </div>
-            <div class="historial-drawer-body">
-                <div class="info-grid">
-                    <div><strong>Pedido:</strong> ${pedidoRef}</div>
-                    <div><strong>Estado:</strong> ${getStatusBadge(estadoNombre)}</div>
-                    <div><strong>Repartidor:</strong> ${escapeHtml(repartidorNombre)}</div>
-                    <div><strong>Vehiculo:</strong> ${escapeHtml(vehiculoPlaca)}</div>
-                    <div><strong>Hora salida:</strong> ${formatDateTime(despacho.fecha_hora_despacho)}</div>
-                    <div><strong>Hora llegada:</strong> ${despacho.fecha_entrega ? formatDateTime(despacho.fecha_entrega) : '—'}</div>
-                    <div style="grid-column:1/-1;"><strong>Farmacia:</strong> ${escapeHtml(despacho.parada?.farmacia?.nombre || despacho.nombre_farmacia || '—')}</div>
-                </div>
-
-                <div class="historial-section">
-                    <h4><i class="fas fa-clock"></i> Timeline de ruta</h4>
-                    <div class="timeline">
-                        <div class="timeline-item">
-                            <div class="timeline-marker success"></div>
-                            <div class="timeline-content">
-                                <strong>Despachado</strong>
-                                <span>${formatDateTime(despacho.fecha_hora_despacho)}</span>
-                            </div>
-                        </div>
-                        ${despacho.fecha_entrega ? `
-                        <div class="timeline-item">
-                            <div class="timeline-marker success"></div>
-                            <div class="timeline-content">
-                                <strong>Entregado</strong>
-                                <span>${formatDateTime(despacho.fecha_entrega)}</span>
-                            </div>
-                        </div>` : `
-                        <div class="timeline-item">
-                            <div class="timeline-marker warning"></div>
-                            <div class="timeline-content">
-                                <strong>Pendiente de entrega</strong>
-                                <span>Sin registro de llegada</span>
-                            </div>
-                        </div>`}
-                        ${despacho.control_ruta?.ruta?.nombre_ruta ? `
-                        <div class="timeline-item">
-                            <div class="timeline-marker info"></div>
-                            <div class="timeline-content">
-                                <strong>Ruta asignada</strong>
-                                <span>${escapeHtml(despacho.control_ruta.ruta.nombre_ruta)}</span>
-                            </div>
-                        </div>` : ''}
-                    </div>
-                </div>
-
-                <div class="historial-section">
-                    <h4><i class="fas fa-exclamation-triangle"></i> Incidencias (${incidencias.length})</h4>
-                    ${incidencias.length ? `
-                        <div class="table-container">
-                            <table class="product-detail-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tipo</th>
-                                        <th>Descripcion</th>
-                                        <th>Fecha</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${incidencias.map(inc => `
-                                        <tr>
-                                            <td>${escapeHtml(inc.tipo?.nombre_tipo || inc.nombre_tipo || '—')}</td>
-                                            <td>${escapeHtml(inc.descripcion || '—')}</td>
-                                            <td>${formatDate(inc.fecha_incidencia || inc.created_at)}</td>
-                                        </tr>
-                                    `).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : '<p class="text-muted">Sin incidencias registradas.</p>'}
-                </div>
-
-                <div class="historial-section">
-                    <h4><i class="fas fa-camera"></i> Evidencias (${evidencias.length})</h4>
-                    ${evidencias.length ? `
-                        <div class="table-container">
-                            <table class="product-detail-table">
-                                <thead>
-                                    <tr>
-                                        <th>Tipo</th>
-                                        <th>Archivo</th>
-                                        <th>Fecha</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    ${evidencias.map(ev => {
-                                        const url = ev.archivo
-                                            ? (ev.archivo.startsWith('http') ? ev.archivo : `http://127.0.0.1:8000/storage/${ev.archivo}`)
-                                            : null;
-                                        return `<tr>
-                                            <td>${escapeHtml(ev.tipoEvidencia?.nombre_tipo || ev.tipo?.nombre_tipo || ev.nombre_tipo || '—')}</td>
-                                            <td>${url
-                                                ? `<a href="${url}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i> Ver</a>`
-                                                : '—'}</td>
-                                            <td>${formatDate(ev.fecha_registro || ev.created_at)}</td>
-                                        </tr>`;
-                                    }).join('')}
-                                </tbody>
-                            </table>
-                        </div>
-                    ` : '<p class="text-muted">Sin evidencias registradas.</p>'}
-                </div>
-            </div>
-        `;
-    } catch (e) {
-        drawer.innerHTML = `
-            <div class="historial-drawer-header">
-                <h3>Error</h3>
-                <button class="modal-close" onclick="closeHistorialDrawer()">&times;</button>
-            </div>
-            <div class="historial-drawer-body">
-                <div class="empty-state"><i class="fas fa-exclamation-circle"></i><h4>Error</h4><p>${escapeHtml(e.message || 'No se pudo cargar el detalle del despacho')}</p></div>
-            </div>
-        `;
-    }
-}
-
-/* ══════════════════════════════════════════════════════════════
-   TAB C — HISTORIAL DE CAMBIOS (LOGS)
+   TAB — HISTORIAL DE CAMBIOS (LOGS)
    ══════════════════════════════════════════════════════════════ */
 
 function loadLogsTab(container) {
@@ -834,12 +658,44 @@ function loadLogsTab(container) {
    ══════════════════════════════════════════════════════════════ */
 
 function getEstadoNameHistorial(p) {
-    return p.estado?.nombre_estado || p.nombre_estado || p.estado || 'Pendiente';
+    return estadoLabel(p.estado) || estadoLabel(p.nombre_estado) || 'Pendiente';
+}
+
+function estadoLabelHistorial(estado) {
+    if (!estado) return '';
+    const clave = String(estado).toLowerCase().replace(/\s+/g, '_');
+    return clave.replace(/_/g, ' ').replace(/^./, c => c.toUpperCase());
+}
+
+function getColumnKeyHistorial(p) {
+    const status = normalize(getEstadoNameHistorial(p));
+    if (status.includes('cancel')) return 'cancelado';
+    if (status.includes('ruta') || status.includes('despach')) return 'en_ruta';
+    if (status.includes('entreg') || status.includes('complet')) return 'entregado';
+    return 'pendiente';
 }
 
 function getFarmaciaNameHistorial(id) {
     if (!id) return 'Sin farmacia';
     return historialFarmaciaMap.get(Number(id)) || 'Sin farmacia';
+}
+
+function getRepartidorNombreHistorial(repartidor) {
+    if (!repartidor) return '';
+    if (repartidor.nombre) return repartidor.nombre;
+    const completo = [repartidor.usuario?.nombre, repartidor.usuario?.apellido]
+        .filter(Boolean).join(' ').trim();
+    return completo || '';
+}
+
+function findHojaRutaIdForPedido(pedidoId) {
+    const hoja = historialData.hojas.find(h => (h.detalles || []).some(d => Number(d.id_pedido) === Number(pedidoId)));
+    return hoja?.id_hoja_ruta || null;
+}
+
+function findDespachoForPedido(hoja, pedidoId) {
+    const detalle = (hoja.detalles || []).find(d => Number(d.id_pedido) === Number(pedidoId));
+    return (detalle?.despachos || [])[0] || null;
 }
 
 function buildFarmaciaMap(pedidos) {
@@ -871,7 +727,3 @@ function formatDateTime(value) {
         return String(value);
     }
 }
-
-function normalizeHistorial(value) { return normalize(value); }
-
-

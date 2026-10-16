@@ -702,15 +702,15 @@
 }
 
 /* Kanban board dentro de seguimiento */
-#kanban-container .kanban-board {
+#pedidos-kanban.kanban-board {
     display: grid;
-    grid-template-columns: repeat(5, minmax(220px, 1fr));
+    grid-template-columns: repeat(4, minmax(220px, 1fr));
     gap: 12px;
     overflow-x: auto;
     padding-bottom: 8px;
 }
 
-#kanban-container .kanban-column {
+#pedidos-kanban .kanban-column {
     min-width: 220px;
     background: #f8fafc;
     border: 1px solid var(--border);
@@ -718,7 +718,7 @@
     padding: 10px;
 }
 
-#kanban-container .kanban-column-header {
+#pedidos-kanban .kanban-column-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -728,18 +728,18 @@
     font-weight: 700;
 }
 
-#kanban-container .kanban-column-body {
+#pedidos-kanban .kanban-column-body {
     display: grid;
     gap: 8px;
     min-height: 60px;
 }
 
-#kanban-container .kanban-column-body .empty-state {
+#pedidos-kanban .kanban-column-body .empty-state {
     padding: 20px 10px;
     font-size: 12px;
 }
 
-#kanban-container .order-card {
+#pedidos-kanban .order-card {
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
@@ -750,27 +750,27 @@
     user-select: none;
 }
 
-#kanban-container .order-card:hover {
+#pedidos-kanban .order-card:hover {
     border-color: var(--primary);
     box-shadow: 0 2px 8px rgba(59,130,246,0.12);
 }
 
-#kanban-container .order-card:active {
+#pedidos-kanban .order-card:active {
     cursor: grabbing;
 }
 
-#kanban-container .order-card .order-id {
+#pedidos-kanban .order-card .order-id {
     color: var(--primary);
     font-weight: 800;
     font-size: 13px;
 }
 
-#kanban-container .order-card h4 {
+#pedidos-kanban .order-card h4 {
     margin: 6px 0;
     font-size: 14px;
 }
 
-#kanban-container .order-card .order-meta {
+#pedidos-kanban .order-card .order-meta {
     display: flex;
     gap: 10px;
     color: var(--text-muted);
@@ -779,33 +779,11 @@
     flex-wrap: wrap;
 }
 
-#kanban-container .order-card .delivery-progress {
-    display: grid;
-    gap: 4px;
-    margin-bottom: 8px;
+#pedidos-kanban .order-card .card-actions {
+    margin-top: 4px;
 }
 
-#kanban-container .order-card .delivery-progress-bar {
-    height: 6px;
-    background: var(--border);
-    border-radius: 999px;
-    overflow: hidden;
-}
-
-#kanban-container .order-card .delivery-progress-bar span {
-    display: block;
-    height: 100%;
-    background: var(--success);
-    border-radius: 999px;
-    transition: width 0.4s ease;
-}
-
-#kanban-container .order-card .delivery-progress small {
-    color: var(--text-muted);
-    font-size: 11px;
-}
-
-#kanban-container .order-card .order-total {
+#pedidos-kanban .order-card .order-total {
     display: flex;
     justify-content: space-between;
     align-items: center;
@@ -814,19 +792,12 @@
     font-size: 12px;
 }
 
-#kanban-container .order-card .order-total span {
+#pedidos-kanban .order-card .order-total span {
     color: var(--text-muted);
 }
 
-#kanban-container .order-card .order-total strong {
+#pedidos-kanban .order-card .order-total strong {
     font-size: 14px;
-}
-
-/* Entregado column - cards not shown, only count */
-#kanban-container .kanban-column[data-column="entregado"] .kanban-column-body {
-    display: flex;
-    align-items: center;
-    justify-content: center;
 }
 
 /* SortableJS ghost styling */
@@ -841,14 +812,14 @@
 }
 
 /* Table within kanban container */
-#kanban-container .ops-panel {
+#pedidos-kanban .ops-panel {
     background: var(--card-bg);
     border: 1px solid var(--border);
     border-radius: var(--radius);
     box-shadow: var(--shadow);
 }
 
-#kanban-container .card-header {
+#pedidos-kanban .card-header {
     padding: 14px 16px;
     border-bottom: 1px solid var(--border);
     display: flex;
@@ -856,31 +827,31 @@
     justify-content: space-between;
 }
 
-#kanban-container .card-body {
+#pedidos-kanban .card-body {
     padding: 16px;
 }
 
-#kanban-container .product-detail-table {
+#pedidos-kanban .product-detail-table {
     width: 100%;
     border-collapse: collapse;
 }
 
-#kanban-container .product-detail-table th,
-#kanban-container .product-detail-table td {
+#pedidos-kanban .product-detail-table th,
+#pedidos-kanban .product-detail-table td {
     font-size: 12px;
     padding: 9px 10px;
     border-bottom: 1px solid var(--border);
     vertical-align: middle;
 }
 
-#kanban-container .product-detail-table th {
+#pedidos-kanban .product-detail-table th {
     background: #f8fafc;
     color: var(--text-muted);
     text-transform: uppercase;
     letter-spacing: 0.03em;
 }
 
-#kanban-container .product-detail-table td .actions {
+#pedidos-kanban .product-detail-table td .actions {
     display: flex;
     gap: 6px;
 }
@@ -890,7 +861,7 @@
     .tracking-summary {
         grid-template-columns: repeat(3, 1fr);
     }
-    #kanban-container .kanban-board {
+    #pedidos-kanban.kanban-board {
         grid-template-columns: repeat(3, minmax(240px, 1fr));
     }
 }
@@ -899,7 +870,42 @@
     .tracking-summary {
         grid-template-columns: repeat(2, 1fr);
     }
-    #kanban-container .kanban-board {
+    #pedidos-kanban.kanban-board {
         grid-template-columns: 1fr;
     }
+}
+
+/* ─────────── Marcadores Leaflet ─────────── */
+
+/* divIcon del vehículo en tiempo real. El fondo se pinta por JS según el
+   estado de la ruta (updateGPSMarkerColor), aquí solo la forma. */
+.gps-marker {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 3px solid #fff;
+    box-shadow: 0 2px 8px rgba(15, 23, 42, .3);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 13px;
+    background: #2563eb;
+    transition: background .25s ease;
+}
+
+.gps-trail-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    background: #2563eb;
+    opacity: .45;
+    border: 1px solid #fff;
+}
+
+/* Los divIcon personalizados no deben heredar la caja blanca por defecto. */
+.planificador-marker-icon,
+.tracking-stop-marker {
+    background: transparent;
+    border: none;
 }
