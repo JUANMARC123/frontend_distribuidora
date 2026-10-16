@@ -105,7 +105,7 @@
     </div>
 
     <script src="js/error-handler.js"></script>
-    <script src="js/config.js"></script>
+    <script src="js/config.js?v=20261016-dynamic-api"></script>
     <script src="js/auth.js"></script>
     <script>
         const token = localStorage.getItem('token');
@@ -256,10 +256,10 @@
             }
 
             log('🕐', `Diagnóstico iniciado: ${checkedAt}`);
-            log('', `Servidor: http://127.0.0.1:8000`);
+            log('📡', `Servidor: ${API_ORIGIN}`);
 
             try {
-                await fetch('http://127.0.0.1:8000/', { method: 'GET' });
+                await fetch(`${API_ORIGIN}/`, { method: 'GET' });
                 log('✅', 'Laravel: responde OK');
             } catch (e) {
                 if (e.message.includes('Failed to fetch') || e.message.includes('NetworkError')) {
@@ -272,7 +272,7 @@
             }
 
             try {
-                const res = await fetch('http://127.0.0.1:8000/api/auth/login', {
+                const res = await fetch(`${API_URL}/auth/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
                     body: JSON.stringify({ email: 'test@test.com', password: 'test' })

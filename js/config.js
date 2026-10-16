@@ -1,4 +1,15 @@
-const API_URL = 'http://127.0.0.1:8000/api';
+/**
+ * Origen del backend derivado en tiempo de ejecucion.
+ *
+ * Antes estaba fijo a http://127.0.0.1:8000/api, lo que rompia en la LAN del
+ * celular, en el VPS y bajo HTTPS (mixed content). Ahora se toma del origen
+ * de la propia pagina (el frontend se sirve desde el mismo Laravel), de modo
+ * que el mismo build funciona en local, LAN y produccion sin tocar codigo.
+ * Se admite un override con window.API_ORIGIN si algun dia difieren.
+ */
+const API_ORIGIN = window.API_ORIGIN || window.location.origin;
+const API_URL = `${API_ORIGIN}/api`;
+const STORAGE_URL = `${API_ORIGIN}/storage/`;
 
 /**
  * Configuracion de Realtime Database, unica fuente para todo el front.

@@ -276,7 +276,7 @@ async function loadEvidencias() {
                 { data: null, render: r => r.tipoEvidencia?.nombre_tipo || r.tipo?.nombre_tipo || r.nombre_tipo || '—' },
                 { data: null, render: r => {
                     if (!r.archivo) return '—';
-                    const url = r.archivo.startsWith('http') ? r.archivo : `http://127.0.0.1:8000/storage/${r.archivo}`;
+                    const url = r.archivo.startsWith('http') ? r.archivo : `${STORAGE_URL}${r.archivo}`;
                     return `<a href="${url}" target="_blank" class="btn btn-sm btn-outline"><i class="fas fa-eye"></i> Ver</a>`;
                 }},
                 { data: null, render: r => formatDate(r.fecha_registro) },

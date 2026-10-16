@@ -430,7 +430,7 @@ async function loadStopEvidencias() {
         } else {
             container.innerHTML = data.map(ev => {
                 const url = ev.archivo
-                    ? (ev.archivo.startsWith('http') ? ev.archivo : `http://127.0.0.1:8000/storage/${ev.archivo}`)
+                    ? (ev.archivo.startsWith('http') ? ev.archivo : `${STORAGE_URL}${ev.archivo}`)
                     : null;
                 return `
                     <div class="evidencia-item">
